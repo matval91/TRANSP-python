@@ -36,13 +36,12 @@ cdict = {'red': ((0., 1, 1),
                   (1, 0, 0))}
 my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
 
-class transp_output_1d:
+class output_1d:
     """
     """
     def __init__(self, fname):
         """
         """
-        
         self.fname = fname
         self.file = nc.Dataset(self.fname)
         self._set_vars()
@@ -289,13 +288,23 @@ class transp_output_1d:
             ind = np.trunc(np.linspace(0, self.nt-1, 5))
         ind = ind.astype(int)
         f = plt.figure()
-        axe = f.add_subplot(121)
-        axi = f.add_subplot(122)
+        axe = f.add_subplot(221)
+        axi = f.add_subplot(222, sharex=axe)
+        axn = f.add_subplot(223, sharex=axe)
+        axj = f.add_subplot(224, sharex=axe)
+        x=self.rho
         for i, el in enumerate(ind):
-            axi.plot(self.rho, self.nb_FKP_vars['pi'][el,:], col[i], label=r't = '+str(self.t[el]))
-            axe.plot(self.rho, self.nb_FKP_vars['pe'][el,:], col[i], label=r't = '+str(self.t[el]))
+            lab=r't='+str(self.t[el])
+            axi.plot(x, self.nb_FKP_vars['pi'][el,:], col[i], label=lab)
+            axe.plot(x, self.nb_FKP_vars['pe'][el,:], col[i], label=lab)
+            axn.plot(x, self.nb_FKP_vars['n'][el,:]/self.kin_vars['ne'][el,:]*100., col[i], label=lab)
+            axj.plot(x, self.nb_FKP_vars['nbcd'][el,:]*1e-3, col[i], label=lab)
+            
+            
         axe.set_xlabel(r'$\rho$'); axe.set_ylabel(r'$P_e$ [$W/m^3$]')
         axi.set_xlabel(r'$\rho$'); axi.set_ylabel(r'$P_i$ [$W/m^3$]')
+        axn.set_xlabel(r'$\rho$'); axn.set_ylabel(r'$n_f/n_e$ (%)')
+        axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$A/m^2$]')
 
         axe.legend(loc='best')
         f.suptitle(self.fname)
@@ -330,8 +339,7 @@ class transp_output_1d:
         f.tight_layout(); f.suptitle(self.fname)
 
         plt.show()
-     
-     
+       
     def average_kin(self):
         """
         Calculates the average of densities and temperatures
@@ -407,6 +415,22 @@ class transp_output_1d:
         f.tight_layout(), f.suptitle(self.fname)
         plt.show()
 
+    def plot_powerbalance(self):
+        """
+        Plots the power balance with cumulative plot
+        """
+        try:
+            self.pe.mean()
+        except:
+            self._calculate_scalarpower()
+        
+        x=self.t
+        y=[(self.pi+self.pe+self.pth)*1e-6, self.pcx*1e-6, self.pol*1e-6, self.psh*1e-6]
+        labels = ['Absorbed', 'CX-losses', 'Orbit losses', 'Shine-through']
+        xlabel = r'Time [s]'
+        ylabel = r'Power [MW]'
+        
+        _cumulative_plot(x,y,labels, xlabel, ylabel)
 
     def calc_eff(self):                
         """
@@ -434,7 +458,7 @@ class transp_output_1d:
         print "CD efficiency: ", self.eff, " [10^20 A / (W m^2)]"
 
 
-class transp_deposition:
+class absorption:
     """
     Class to analyse the denposition profiles from NUBEAM
     
@@ -514,7 +538,7 @@ class transp_deposition:
         """
         self.infile_n = inf_name
         self.file = nc.Dataset(inf_name)
-        
+        self.shot = inf_name[0:5]
         keys = ['R','z', 'Rgc','zgc', 'pitch','E','weight','phi','time', 'beamid']
         varnames = ['bs_r_D_MCBEAM', 'bs_z_D_MCBEAM', 'bs_rgc_D_MCBEAM',\
             'bs_zgc_D_MCBEAM', 'bs_xksid_D_MCBEAM', 'bs_einj_D_MCBEAM', \
@@ -534,8 +558,13 @@ class transp_deposition:
         for i in ['R','z', 'Rgc', 'zgc']:
             self.data_i[i] *= 0.01
             
+        self.data_i['X'] = np.multiply(self.data_i['R'],np.cos(self.data_i['phi']))
+        self.data_i['Y'] = np.multiply(self.data_i['R'],np.sin(self.data_i['phi']))
 
-
+        self.time = self.file.variables['bs_time_D_MCBEAM'][:].mean().round(3)
+        
+        self._readwall()
+        
     def _fill_dict(self, keys, varnames, name_dict, var_dict):
         """
         Fills dictionaries
@@ -549,8 +578,6 @@ class transp_deposition:
             var_dict[kk] = tmpdata
             
         return name_dict, var_dict
-
-
 
     def plot_RZpart(self):
         """
@@ -581,13 +608,8 @@ class transp_deposition:
         """
         Method to plot XY of ionisation, without difference between the beams
         """
-
-        x=np.zeros(self.npart)
-        y=np.zeros(self.npart)
-        
-        for i, el in enumerate(self.data_i['R']):
-            x[i]=el*math.cos(self.data_i['phi'][i])
-            y[i]=el*math.sin(self.data_i['phi'][i])
+        x=self.data_i['X']
+        y=self.data_i['Y']
             
         f=plt.figure()
         ax=f.add_subplot(111)
@@ -596,9 +618,9 @@ class transp_deposition:
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         theta=np.arange(0,6.3,0.02*6.28)
-        #if len(self.R_w)==0:
-        #    ax.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'k', linewidth=3)
-        #    ax.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'k', linewidth=3)
+        if len(self.R_w)==0:
+            ax.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'k', linewidth=3)
+            ax.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'k', linewidth=3)
         plt.show()
         
         
@@ -619,7 +641,84 @@ class transp_deposition:
         plt.show()
         
         
+    def _readwall(self):
+        """
+        Hidden method to read the wall
+        """
+        in_w_fname='/home/vallar/TCV/TCV_vessel_coord.dat'
+        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
+
+        self.R_w = np.array(wall[0,:])
+        self.z_w = np.array(wall[1,:])
         
+class absorption_time:
+    """
+    Class as fbm including time dependence
+    """
+    def __init__(self, runid):
+        self.runid = runid
+        file_list = glob.glob('*_birth.cdf*') # Get all the cdf in the current directory
+        self.nslices=len(file_list)        
+        self.timeslices = np.array([absorption for _ in range(self.nslices)])
+        print "Number of timeslices: ", str(self.nslices)
+        
+        
+        for i in range(self.nslices):
+            fname = runid+'_birth.cdf'+str(i+1)
+            self.nslices += 1
+            print fname
+            tmp = absorption(fname)
+            self.timeslices[i] = tmp
+        self.R_w, self.z_w = \
+        self.timeslices[0].R_w,self.timeslices[0].z_w
+
+    def make_gif_XY(self):
+        """
+        """
+        self._make_gif_coords('X', 'Y', 'X [m]', 'Y [m]', wall=[self.R_w, self.z_w])
+
+    def _make_gif_coords(self, xname, yname, xlab, ylab, wall):
+        """
+        http://superfluoussextant.com/making-gifs-with-python.html
+        """
+        cwd = os.getcwd()
+        tmpdir = cwd+'tmp_gifcreator/'      
+        self._make_coords_singlefigures(tmpdir, xname, yname, xlab, ylab, wall)
+        os.chdir(tmpdir)
+        
+        gif_name = cwd+xname+yname+'_ioniz_'+self.runid
+        file_list = glob.glob('*.png') # Get all the pngs in the current directory
+        #list.sort(file_list, key=lambda x: int(x.split('_')[1].split('.png')[0])) # Sort the images by #, this may need to be tweaked for your use case
+
+        with open('image_list.txt', 'w') as file:
+            for item in file_list:
+                file.write("%s\n" % item)
+            
+        os.system('convert -delay 100 @image_list.txt {}.gif'.format(gif_name)) # On windows convert is 'magick'
+        os.chdir(cwd)
+        shutil.rmtree(tmpdir)
+        
+    def _make_coords_singlefigures(self, tmpdir, xname, yname, xlab, ylab, wall):
+        """
+        """
+        olddir = os.getcwd()
+        os.makedirs(tmpdir); os.chdir(tmpdir)
+    
+        vmax = 15
+        for i, el in enumerate(self.timeslices):
+            x = np.linspace(np.min(el.data_i[xname]), np.max(el.data_i[xname]), 100)
+            y = np.linspace(np.min(el.data_i[yname]), np.max(el.data_i[yname]), 100)
+            title = "Shot "+str(el.shot)+'| t='+str(el.time)+'s'
+            interactive(False) 
+            z, xedges, yedges = np.histogram2d(el.data_i[xname], el.data_i[yname],\
+                            bins=100, normed=True)     
+            z=z.T
+            xlim, ylim = [-max(self.R_w)*1.1, max(self.R_w)*1.1], [-max(self.R_w)*1.1, max(self.R_w)*1.1]
+            interactive(True) 
+            _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i), wall)
+        os.chdir(olddir)
+
+
 class fbm:
     """
     Manages the (tricky) output file for fbms from transp
@@ -675,6 +774,8 @@ class fbm:
         for i in tok:
             self.tok += i
         self.time  = round(self.infile.variables['TIME'][:], 3)
+        self.shot = self.runid[0:5]
+        
         
     def _read_dim(self):
         """
@@ -765,7 +866,6 @@ class fbm:
             
         self._plot_1d('Energy', norm=norm)
 
-
     def plot_Epitch(self):
         """
         """
@@ -832,11 +932,9 @@ class fbm_time:
             fname = runid+'_fi_'+str(i+1)+'.cdf'
             self.nslices += 1
             print fname
-            try:
-                tmp = fbm(fname)
-                self.timeslices[i] = tmp
-            except:
-                continue
+            tmp = fbm(fname)
+            self.timeslices[i] = tmp
+
         self._integratespace()
         
     def _integratespace(self):
@@ -907,26 +1005,52 @@ class fbm_time:
             x,y = el.dict_dim['pitch'], el.dict_dim['E']
             z = el.f_space_int
             xlab, ylab = r'$\xi$', r'E [keV]'
-            title = str(el.time)
+            title = "Shot "+str(el.shot)+'| t='+str(el.time)+'s'
+
             xlim, ylim = [-1., 1.], [0, 30000]
-            self._save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i))
+            _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i))
         os.chdir(olddir)
         
         
-    def _save_singleframe(self, x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename):
-        """
-        """
-        interactive(False) 
-        levels = np.linspace(0,vmax,20)
-        f = plt.figure()
-        ax = f.add_subplot(111)        
-        CB=ax.contourf(x,y,z, 20, cmap=my_cmap, vmin=0, vmax=vmax, levels=levels)
-        plt.colorbar(CB)   
-        ax.grid('on')
-        ax.set_xlabel(xlab)
-        ax.set_ylabel(ylab)
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-        ax.set_title(title)
-        plt.savefig(savename+'.png', bbox_inches='tight')
-        interactive(True)
+def _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename, wall):
+    """
+    """
+    interactive(False) 
+    levels = np.linspace(0,vmax,30)
+    f = plt.figure()
+    ax = f.add_subplot(111)        
+    CB=ax.contourf(x,y,z, 20, cmap=my_cmap, vmin=0, vmax=vmax, levels=levels)
+    plt.colorbar(CB)   
+    if np.shape(wall)!=[0,0]:
+        theta=np.linspace(0, math.pi*2., num=100)
+        ax.plot(np.min(wall[0])*np.cos(theta), np.min(wall[0])*np.sin(theta), 'k', lw=2.5)
+        ax.plot(np.max(wall[0])*np.cos(theta), np.max(wall[0])*np.sin(theta), 'k', lw=2.5)
+
+    ax.grid('on')
+    ax.set_xlabel(xlab)
+    ax.set_ylabel(ylab)
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_title(title)
+    plt.savefig(savename+'.png', bbox_inches='tight')
+    interactive(True)
+        
+def _cumulative_plot(x,y,labels, xlabel, ylabel):
+    f  = plt.figure()
+    ax = f.add_subplot(111)
+    tmpy=np.zeros(len(x))
+    for i, el in enumerate(y):
+        tmpy+=el
+        ax.plot(x,tmpy, col[i], lw=2.5, label=labels[i])
+        ax.fill_between(x, tmpy, tmpy-el, color=col[i])
+            
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    
+    ax2=ax.twinx()
+    ticks1 = ax.get_yticks()
+    ax2.set_yticks(ticks1)
+    ax2.set_yticklabels(ticks1/np.max(tmpy))
+    ax2.set_ylim(ax.get_ylim())
+    ax2.set_ylabel('Fraction (%)')
+    ax.legend(loc='best')
