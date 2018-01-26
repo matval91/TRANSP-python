@@ -44,6 +44,7 @@ class output_1d:
         """
         self.fname = fname
         self.file = nc.Dataset(self.fname)
+        self.runid = self.fname[0:8]
         self._set_vars()
         
     def _set_vars(self):
@@ -107,7 +108,9 @@ class output_1d:
         self.nb_in_vars  = dict.fromkeys(keys)
         self.nb_in_names, self.nb_in_vars = \
             self._fill_dict(keys, varnames, self.nb_in_names, self.nb_in_vars)        
-            
+        self.inj_index = np.where(self.nb_in_vars['P']>0.)[0]
+        
+        
     def _nb_out_vars(self):
         """
         Gathers NB variables (nfast, pfast, pe, pi, nbcd) from netcdf file
@@ -238,10 +241,44 @@ class output_1d:
                     self.gi[time_ind,rho_ind] = timeslice[rho_ind]/E0[time_ind]*np.trapz(1/(1+x_array**1.5), x_array)
             self.gi_mean[time_ind] = np.trapz(self.gi[time_ind,:], self.rho)   
         
-        
+
     def plot_input(self):
         """
-        Plots input quantities, such as ne, ni, Te, Ti
+        """
+        self.plot_input_1d()
+        self.plot_input_prof()
+        
+        
+    def plot_input_1d(self):
+        """
+        Plots input quantities, such as ne, ni, Te, Ti averaged
+        """
+        try:
+            self.ne_mean.mean()
+        except:
+            self.average_kin()
+        
+        f = plt.figure()
+        axne = f.add_subplot(211)
+        axTe = f.add_subplot(212, sharex=axne)
+        
+        axne.plot(self.t, self.ne_mean, 'k', lw=2.3, label=r'e')
+        axne.plot(self.t, self.ni_mean, 'r', lw=2.3, label=r'i')
+        axTe.plot(self.t, self.Te_mean, 'k', lw=2.3, label=r'e')
+        axTe.plot(self.t, self.Ti_mean, 'r', lw=2.3, label=r'i')
+
+        axne.set_xlabel(r'Time (s)'); axne.set_ylabel(r'$\langle n \rangle$ [$1/m^3$]')
+        axTe.set_xlabel(r'Time (s)'); axTe.set_ylabel(r'$\langle T \rangle$ [$eV$]')
+
+        axne.legend(loc='best'), axTe.legend(loc='best')
+        f.suptitle(self.fname)
+        f.tight_layout()
+        plt.show()    
+
+       
+    def plot_input_prof(self):
+        """
+        Plots input quantities, such as ne, ni, Te, Ti profiles
         """
         try:
             self.kin_vars['ne'].mean()
@@ -274,8 +311,36 @@ class output_1d:
         f.suptitle(self.fname)
         f.tight_layout()
         plt.show()    
-    
+
     def plot_deposition(self):
+        """
+        """
+        self._plot_deposition_1d()
+        self._plot_deposition_prof()
+
+    def _plot_deposition_1d(self):
+        """
+        """
+        try:
+            self.pe.mean()
+        except:
+            self._calculate_scalarpower()
+        
+        f = plt.figure()
+        axp = f.add_subplot(111)
+       
+        axp.plot(self.t, self.pe, 'k', lw=2.3, label=r'e')
+        axp.plot(self.t, self.pi, 'r', lw=2.3, label=r'i')
+
+        axp.set_xlabel(r'Time (s)'); axp.set_ylabel(r'p[W]')
+
+        axp.legend(loc='best')
+        f.suptitle(self.fname)
+        f.tight_layout()
+        plt.show()     
+        
+        
+    def _plot_deposition_prof(self):
         """
         Plots deposition to ions, electrons
         """
@@ -285,7 +350,7 @@ class output_1d:
             print "No Pi data"
             return
         if self.nt > 5:
-            ind = np.trunc(np.linspace(0, self.nt-1, 5))
+            ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index), 5)
         ind = ind.astype(int)
         f = plt.figure()
         axe = f.add_subplot(221)
@@ -293,12 +358,12 @@ class output_1d:
         axn = f.add_subplot(223, sharex=axe)
         axj = f.add_subplot(224, sharex=axe)
         x=self.rho
-        for i, el in enumerate(ind):
-            lab=r't='+str(self.t[el])
-            axi.plot(x, self.nb_FKP_vars['pi'][el,:], col[i], label=lab)
-            axe.plot(x, self.nb_FKP_vars['pe'][el,:], col[i], label=lab)
-            axn.plot(x, self.nb_FKP_vars['n'][el,:]/self.kin_vars['ne'][el,:]*100., col[i], label=lab)
-            axj.plot(x, self.nb_FKP_vars['nbcd'][el,:]*1e-3, col[i], label=lab)
+        for index, i in enumerate(ind):
+            lab=r't='+str(self.t[i])
+            axi.plot(x, self.nb_FKP_vars['pi'][i,:], col[index], label=lab)
+            axe.plot(x, self.nb_FKP_vars['pe'][i,:], col[index], label=lab)
+            axn.plot(x, self.nb_FKP_vars['n'][i, :]/self.kin_vars['ne'][i,:]*100., col[index], label=lab)
+            axj.plot(x, self.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index], label=lab)
             
             
         axe.set_xlabel(r'$\rho$'); axe.set_ylabel(r'$P_e$ [$W/m^3$]')
@@ -321,8 +386,9 @@ class output_1d:
         except:
             print "No nbcd data"
             return
+
         if self.nt > 5:
-            ind = np.trunc(np.linspace(0, self.nt-1, num=5))
+            ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index), 5)
         ind = ind.astype(int)
         self.calculate_scalars()
 
@@ -352,9 +418,9 @@ class output_1d:
        
         for i in range(self.nt):
             self.ne_mean[i] = np.trapz(self.kin_vars['ne'][i,:], self.rho)
-            self.ni_mean[i] = np.trapz(self.kin_vars['ne'][i,:], self.rho)
-            self.Te_mean[i] = np.trapz(self.kin_vars['ne'][i,:], self.rho)
-            self.Ti_mean[i] = np.trapz(self.kin_vars['ne'][i,:], self.rho)
+            self.ni_mean[i] = np.trapz(self.kin_vars['ni'][i,:], self.rho)
+            self.Te_mean[i] = np.trapz(self.kin_vars['te'][i,:], self.rho)
+            self.Ti_mean[i] = np.trapz(self.kin_vars['ti'][i,:], self.rho)
             self.nf_mean[i] = np.trapz(self.nb_FKP_vars['n'][i,:], self.rho)
         
     def _calculate_scalarpower(self):
@@ -375,7 +441,13 @@ class output_1d:
         self.pol = self.nb_FKP_vars['orbloss']
         
         self.psh = self.nb_ioniz_vars['st']
-            
+        ind = np.where(self.nb_in_vars['P']>0.9*np.max(self.nb_in_vars['P']))
+        self.psh_mean = np.mean(self.psh[ind])
+        self.pcx_mean = np.mean(self.pcx[ind])
+        self.pol_mean = np.mean(self.pol[ind])
+        self.pin_mean = np.mean(self.nb_in_vars['P'][ind])
+       
+        
     def power_balance(self):
         """
         """            
@@ -430,7 +502,7 @@ class output_1d:
         xlabel = r'Time [s]'
         ylabel = r'Power [MW]'
         
-        _cumulative_plot(x,y,labels, xlabel, ylabel)
+        _cumulative_plot(x,y,labels, xlabel, ylabel, self.runid)
 
     def calc_eff(self):                
         """
@@ -457,6 +529,16 @@ class output_1d:
 #        print "P  ", P, 'W'
         print "CD efficiency: ", self.eff, " [10^20 A / (W m^2)]"
 
+    def plot_radar_plost(self):
+        """
+        """
+        self.calculate_scalars()
+        N=3
+        values = [self.psh_mean/self.pin_mean*100., self.pol_mean/self.pin_mean*100., \
+                    self.pcx_mean/self.pin_mean*100.]
+
+        categories = ['ST', 'OL', 'CX']
+        _radar_plot(N, values, categories)
 
 class absorption:
     """
@@ -715,7 +797,8 @@ class absorption_time:
             z=z.T
             xlim, ylim = [-max(self.R_w)*1.1, max(self.R_w)*1.1], [-max(self.R_w)*1.1, max(self.R_w)*1.1]
             interactive(True) 
-            _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i), wall)
+            _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i), \
+                wall_xy = [self.R_w])
         os.chdir(olddir)
 
 
@@ -748,8 +831,8 @@ class fbm:
         self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('pitch',[]),('E',[])])
         self.name_dim = {'R':'R2D', 'z':'Z2D', 'pitch':'A_D_NBI', 'E':'E_D_NBI'}
         self._read_dim()
-        self.dict_dim['R'] *= 100.
-        self.dict_dim['z'] *= 100.
+        self.dict_dim['R'] *= 0.01
+        self.dict_dim['z'] *= 0.01
         self.dict_dim_MCgrid = dict.copy(self.dict_dim)
 
         self.fdist_MCgrid = 0.5*self.infile.variables['F_D_NBI'][:]*1e6 #converting to m
@@ -759,8 +842,38 @@ class fbm:
         self.fdist_notnorm = np.zeros((self.shape_dim['E'], self.shape_dim['pitch'], \
                     self.nbins, self.nbins), dtype=float)        
         self._RZgrid()
-        
         self.norm=1.
+        self._computenorm()    
+        self.fdist_norm = self.fdist_notnorm/self.norm
+        self._readwall()
+
+        self.rsurf, self.zsurf = self.infile.variables['RSURF'][:], self.infile.variables['ZSURF'][:]
+        self.rsurf *= 0.01
+        self.zsurf *= 0.01
+        
+        
+    def _computenorm(self):
+        """
+        calculates the norm of the function
+        """
+        if "pitch" in self.dict_dim.keys():
+            try:
+                self.f_spacep_int()
+            except:
+                self._integrate_spacep()
+                
+            self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+            #print "NORM = ", self.norm
+
+    def _readwall(self):
+        """
+        Hidden method to read the wall
+        """
+        in_w_fname='/home/vallar/TCV/TCV_vessel_coord.dat'
+        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
+
+        self.R_w = np.array(wall[0,:])
+        self.z_w = np.array(wall[1,:])        
         
     def _read_info(self):
         """
@@ -807,7 +920,7 @@ class fbm:
 
         int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
         int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-        self.f_space_int = int_Rz #pitch,E            
+        self.f_space_int = int_Rz #pitch,E, normalized           
 
 
     def _RZgrid(self):
@@ -837,6 +950,16 @@ class fbm:
         hidden method to integrate over (space,pitch)
         """
         self.f_spaceE_int = self._integrate_spacex('E', ax=0)    
+
+
+    def _integrate_Ep(self):
+        """
+        Hidden method to integrate over (E,p)
+        """
+        dist_toint = self.fdist_notnorm/self.norm
+            
+        int_E = np.trapz(dist_toint, self.dict_dim['E'], axis=0)
+        self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
 
     def plot_spaceE(self, norm):
         """
@@ -868,6 +991,7 @@ class fbm:
 
     def plot_Epitch(self):
         """
+        plot 2D (pitch, energy, int_space(fdist))
         """
         try:
             self.f_space_int.mean()
@@ -876,6 +1000,19 @@ class fbm:
         x,y = self.dict_dim['pitch'], self.dict_dim['E']
         title = self.runid + ' ' + str(self.time)
         self._plot_2d(x,y, self.f_space_int, r'$\xi$', r'E [eV]', title)
+
+    def plot_space(self):
+        """
+        """
+        try:
+            self.f_Ep_int.mean()
+        except:
+            self._integrate_Ep()
+        x,y = self.dict_dim['R'], self.dict_dim['z']
+        title = self.runid + ' ' + str(self.time)
+        self._plot_2d(x,y, self.f_Ep_int.T, r'R [m]', r'z [m]', title, \
+                    wall=[self.R_w, self.z_w], surf=[self.rsurf, self.zsurf])
+
 
     def _make_2d_fdist(self, x,y,z):
         """
@@ -905,12 +1042,20 @@ class fbm:
         
         plt.show()
         
-    def _plot_2d(self,x,y,z, xlabel, ylabel, title):
+    def _plot_2d(self,x,y,z, xlabel, ylabel, title, **kwargs):
         """
         """        
         fig = plt.figure()
         ax = fig.gca()
-        CS = ax.contour(x,y,z, 20, cmap=my_cmap)
+        if "wall" in kwargs:
+            r,zt = kwargs['wall'][0], kwargs['wall'][1]
+            ax.plot(r,zt, 'k', lw=2.5)
+        if "surf" in kwargs:
+            r,zt = kwargs['surf'][0], kwargs['surf'][1]
+            ind=np.linspace(0, np.shape(r)[0]-1, 5)            
+            for i in ind:
+                plt.plot(r[i,:], zt[i,:], 'k', lw=1.1)
+        CS = ax.contourf(x,y,z, 30, cmap=my_cmap)
         plt.colorbar(CS)
         ax.set_xlabel(xlabel), ax.set_ylabel(ylabel)
         ax.set_title(title)
@@ -936,14 +1081,23 @@ class fbm_time:
             self.timeslices[i] = tmp
 
         self._integratespace()
+        self._integrateEp()
+        self.R_w, self.z_w = self.timeslices[0].R_w, self.timeslices[0].z_w
+        
         
     def _integratespace(self):
         """
         """
         for i in self.timeslices:
             i._integrate_space()
-            
-    def plot_frames(self):
+    
+    def _integrateEp(self):
+        """
+        """
+        for i in self.timeslices:
+            i._integrate_Ep()
+    
+    def plot_Epframes(self):
         """
         """
         
@@ -972,6 +1126,37 @@ class fbm_time:
         f.colorbar(CB, cax=cbar_ax)        
         
         plt.show()
+
+    def plot_frames(self):
+        """
+        """
+        
+        n_cols = 3
+        n_rows = self.nslices/3
+        if self.nslices%3!=0:
+            n_rows=n_rows+1
+        vmax = np.max([i.f_Ep_int for i in self.timeslices])
+        f, axarr = plt.subplots(n_cols, n_rows, sharex=True, sharey=True)        
+        for i in range(self.nslices):
+            ind_row = i/n_rows
+            ind_col = i%n_rows
+            CB=axarr[ind_row, ind_col].contourf(self.timeslices[i].dict_dim['R'], \
+                    self.timeslices[i].dict_dim['z'], self.timeslices[i].f_Ep_int, \
+                    20, cmap=my_cmap, vmin=0, vmax=vmax)
+            #plt.colorbar(CB)        
+            axarr[ind_row, ind_col].set_xlabel(r'R [m]')
+            axarr[ind_row, ind_col].set_ylabel(r'z [m]')
+            axarr[ind_row, ind_col].set_xlim([-0.5, 1.6])
+            axarr[ind_row, ind_col].set_ylim([-0.8, 0.8])
+            axarr[ind_row, ind_col].set_title(str(self.timeslices[i].time))
+            axarr[ind_row, ind_col].plot(self.R_w, self.z_w, 'k', lw=2.5)
+        f.tight_layout()
+        f.subplots_adjust(right=0.8)
+        cbar_ax = f.add_axes([0.85, 0.15, 0.05, 0.7])
+        f.colorbar(CB, cax=cbar_ax)        
+        
+        plt.show()
+
        
     def make_gif_Ep(self):
         """
@@ -1010,9 +1195,48 @@ class fbm_time:
             xlim, ylim = [-1., 1.], [0, 30000]
             _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i))
         os.chdir(olddir)
+
+
+    def make_gif_space(self):
+        """
+        http://superfluoussextant.com/making-gifs-with-python.html
+        """
+        cwd = os.getcwd()
+        tmpdir = cwd+'tmp_gifcreator/'
+        self._make_space_singlefigures(tmpdir)
+        os.chdir(tmpdir)
         
+        gif_name = cwd+'space'+self.runid
+        file_list = glob.glob('*.png') # Get all the pngs in the current directory
+        #list.sort(file_list, key=lambda x: int(x.split('_')[1].split('.png')[0])) # Sort the images by #, this may need to be tweaked for your use case
+
+        with open('image_list.txt', 'w') as file:
+            for item in file_list:
+                file.write("%s\n" % item)
+            
+        os.system('convert -delay 100 @image_list.txt {}.gif'.format(gif_name)) # On windows convert is 'magick'
+        os.chdir(cwd)
+        shutil.rmtree(tmpdir)
         
-def _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename, wall):
+    def _make_space_singlefigures(self, tmpdir):
+        """
+        """
+        olddir = os.getcwd()
+        os.makedirs(tmpdir); os.chdir(tmpdir)
+
+        vmax = np.max([i.f_Ep_int for i in self.timeslices])
+        for i, el in enumerate(self.timeslices):
+            x,y = el.dict_dim['R'], el.dict_dim['z']
+            z = el.f_Ep_int.T
+            xlab, ylab = r'R [m]', r'Z [m]'
+            title = "Shot "+str(el.shot)+'| t='+str(el.time)+'s'
+
+            xlim, ylim = [0.5, 1.2], [-0.8, 0.8]
+            _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, str(i) ,\
+                            wall_rz = [el.R_w, el.z_w], surf=[el.rsurf, el.zsurf])
+        os.chdir(olddir)      
+        
+def _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename, **kwargs):
     """
     """
     interactive(False) 
@@ -1021,10 +1245,21 @@ def _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename, wa
     ax = f.add_subplot(111)        
     CB=ax.contourf(x,y,z, 20, cmap=my_cmap, vmin=0, vmax=vmax, levels=levels)
     plt.colorbar(CB)   
-    if np.shape(wall)!=[0,0]:
+    if 'wall_xy' in kwargs:
         theta=np.linspace(0, math.pi*2., num=100)
+        wall = kwargs['wall_xy']
         ax.plot(np.min(wall[0])*np.cos(theta), np.min(wall[0])*np.sin(theta), 'k', lw=2.5)
         ax.plot(np.max(wall[0])*np.cos(theta), np.max(wall[0])*np.sin(theta), 'k', lw=2.5)
+    if 'wall_rz' in kwargs:
+        wall = kwargs['wall_rz']
+        ax.plot(wall[0], wall[1], 'k', lw=2.5)
+        ax.axis('equal')
+
+    if 'surf' in kwargs:
+        r,zt = kwargs['surf'][0], kwargs['surf'][1]
+        ind=np.linspace(0, np.shape(r)[0]-1, 5)            
+        for i in ind:
+            ax.plot(r[i,:], zt[i,:], 'k', lw=1.1)
 
     ax.grid('on')
     ax.set_xlabel(xlab)
@@ -1035,7 +1270,7 @@ def _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename, wa
     plt.savefig(savename+'.png', bbox_inches='tight')
     interactive(True)
         
-def _cumulative_plot(x,y,labels, xlabel, ylabel):
+def _cumulative_plot(x,y,labels, xlabel, ylabel, title):
     f  = plt.figure()
     ax = f.add_subplot(111)
     tmpy=np.zeros(len(x))
@@ -1054,3 +1289,39 @@ def _cumulative_plot(x,y,labels, xlabel, ylabel):
     ax2.set_ylim(ax.get_ylim())
     ax2.set_ylabel('Fraction (%)')
     ax.legend(loc='best')
+    
+    ax.set_title(title)
+    
+    
+    
+def _radar_plot(N, values, categories, title):
+    """
+    Freely revisited from 
+    https://python-graph-gallery.com/390-basic-radar-chart/
+    """    
+    # We are going to plot the first line of the data frame.
+    # But we need to repeat the first value to close the circular graph:
+    values += values[:1]    
+    # What will be the angle of each axis in the plot? (we divide the plot / number of variable)
+    angles = [n / float(N) * 2 * math.pi for n in range(N)]
+    angles += angles[:1]
+     
+    # Initialise the spider plot
+    ax = plt.subplot(111, polar=True)
+     
+    # Draw one axe per variable + add labels labels yet
+    plt.xticks(angles[:-1], categories, color='black', size=30)
+     
+    # Draw ylabels
+    ax.set_rlabel_position(45)
+    #ax.set_rticks([0.5, 1, 1.5, 2])  # less radial ticks
+#    plt.yticks([10,20,30], ["10","20","30"], color="grey", size=7)
+#    plt.ylim(0,40)
+
+    # Plot data
+    ax.plot(angles, values, linewidth=1, linestyle='solid')
+     
+    # Fill area
+    ax.fill(angles, values, 'b', alpha=0.1)
+    
+    ax.set_title(title, va='bottom')
