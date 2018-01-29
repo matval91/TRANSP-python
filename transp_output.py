@@ -419,7 +419,7 @@ class output_1d:
         
         axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$A/m^2$]')
         axcd.set_xlabel(r't [s]'); axcd.set_ylabel(r'Driven current [kA]')
-        axsh.set_xlabel(r't [s]'); axsh.set_ylabel(r'Shielding by $e^-$ $I_{SH}/I_{UN}$')        
+        axsh.set_xlabel(r't [s]'); axsh.set_ylabel(r'Shielding by $e^-$    $1-I_{SH}/I_{UN}$')        
         axeff.set_xlabel(r't [s]'); axeff.set_ylabel(r' $\eta=\frac{R_0 n_e I_{CD}}{P} [\frac{10^{20} A}{W m^2}]$')  
         axeff.set_title(r'NBCD efficiency')
         axeff.set_ylim([0,0.01])
