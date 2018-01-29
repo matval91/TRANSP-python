@@ -75,8 +75,8 @@ class output_1d:
         """
         self.t  = self.file['TIME'][:]
         self.nt = len(self.t)
-        self.darea = self.file.variables['DAREA'][:]
-        self.dvol  = self.file.variables['DVOL'][:]
+        self.darea = np.array(self.file.variables['DAREA'][:])
+        self.dvol  = np.array(self.file.variables['DVOL'][:])
         self.rho = np.linspace(0, 1, num=len(self.darea[0,:]), dtype=float)
 
         self._imp_vars()
@@ -240,7 +240,7 @@ class output_1d:
             self._calculate_Ec()
         Ec = self.Ec; E0 = self.nb_in_vars['E']
         self.gi = np.zeros(np.shape(Ec), dtype=float)
-        self.gi_mean = np.zeros(self.nt, dtype=float)
+        self.gi_vavg = np.zeros(self.nt, dtype=float)
         for time_ind in range(np.shape(Ec)[0]):
             if E0[time_ind] == 0.:
                 continue
@@ -251,8 +251,8 @@ class output_1d:
                 else:
                     x_array = np.linspace(0,E0[time_ind]/timeslice[rho_ind], num=100, dtype=float)
                     self.gi[time_ind,rho_ind] = timeslice[rho_ind]/E0[time_ind]*np.trapz(1/(1+x_array**1.5), x_array)
-            self.gi_mean[time_ind] = np.trapz(self.gi[time_ind,:], self.rho)   
-        
+            self.gi_vavg[time_ind] = np.trapz(self.gi[time_ind,:], self.rho)   
+        self.gi_mean = np.mean(self.gi_vavg[self.inj_index])
 
     def plot_input(self):
         """
@@ -274,10 +274,10 @@ class output_1d:
         axne = f.add_subplot(211)
         axTe = f.add_subplot(212, sharex=axne)
         
-        axne.plot(self.t, self.ne_mean, 'k', lw=2.3, label=r'e')
-        axne.plot(self.t, self.ni_mean, 'r', lw=2.3, label=r'i')
-        axTe.plot(self.t, self.Te_mean, 'k', lw=2.3, label=r'e')
-        axTe.plot(self.t, self.Ti_mean, 'r', lw=2.3, label=r'i')
+        axne.plot(self.t, self.ne_vavg, 'k', lw=2.3, label=r'e')
+        axne.plot(self.t, self.ni_vavg, 'r', lw=2.3, label=r'i')
+        axTe.plot(self.t, self.Te_vavg, 'k', lw=2.3, label=r'e')
+        axTe.plot(self.t, self.Ti_vavg, 'r', lw=2.3, label=r'i')
 
         axne.set_xlabel(r'Time (s)'); axne.set_ylabel(r'$\langle n \rangle$ [$1/m^3$]')
         axTe.set_xlabel(r'Time (s)'); axTe.set_ylabel(r'$\langle T \rangle$ [$eV$]')
@@ -434,18 +434,25 @@ class output_1d:
         """
         Calculates the average of densities and temperatures
         """
-        self.ne_mean = np.zeros(self.nt, dtype=float)
-        self.ni_mean = np.zeros(self.nt, dtype=float)
-        self.Te_mean = np.zeros(self.nt, dtype=float)
-        self.Ti_mean = np.zeros(self.nt, dtype=float)
-        self.nf_mean = np.zeros(self.nt, dtype=float)
-       
+        self.ne_vavg = np.zeros(self.nt, dtype=float)
+        self.ni_vavg = np.zeros(self.nt, dtype=float)
+        self.Te_vavg = np.zeros(self.nt, dtype=float)
+        self.Ti_vavg = np.zeros(self.nt, dtype=float)
+        self.nf_vavg = np.zeros(self.nt, dtype=float)
+        
         for i in range(self.nt):
-            self.ne_mean[i] = np.trapz(self.kin_vars['ne'][i,:], self.rho)
-            self.ni_mean[i] = np.trapz(self.kin_vars['ni'][i,:], self.rho)
-            self.Te_mean[i] = np.trapz(self.kin_vars['te'][i,:], self.rho)
-            self.Ti_mean[i] = np.trapz(self.kin_vars['ti'][i,:], self.rho)
-            self.nf_mean[i] = np.trapz(self.nb_FKP_vars['n'][i,:], self.rho)
+            dvol = self.dvol[i,:]
+            self.ne_vavg[i] = np.dot(self.kin_vars['ne'][i,:],dvol)/np.sum(dvol)
+            self.ni_vavg[i] = np.dot(self.kin_vars['ni'][i,:],dvol)/np.sum(dvol)
+            self.Te_vavg[i] = np.dot(self.kin_vars['te'][i,:],dvol)/np.sum(dvol)
+            self.Ti_vavg[i] = np.dot(self.kin_vars['ti'][i,:],dvol)/np.sum(dvol)
+            self.nf_vavg[i] = np.dot(self.nb_FKP_vars['n'][i,:],dvol)/np.sum(dvol)
+            
+        self.ne_mean = np.mean(self.ne_vavg[self.inj_index])
+        self.ni_mean = np.mean(self.ni_vavg[self.inj_index])
+        self.Te_mean = np.mean(self.Te_vavg[self.inj_index])
+        self.Ti_mean = np.mean(self.Ti_vavg[self.inj_index])
+        self.nf_mean = np.mean(self.nf_vavg[self.inj_index])
         
     def _calculate_scalars(self):
         """
@@ -470,14 +477,18 @@ class output_1d:
             
         self.pcx = self.nb_FKP_vars['cx1']+self.nb_FKP_vars['cx2']
         self.pol = self.nb_FKP_vars['orbloss']
-        
         self.psh = self.nb_ioniz_vars['st']
+
         ind = self.inj_index
         self.psh_mean = np.mean(self.psh[ind])
         self.pcx_mean = np.mean(self.pcx[ind])
         self.pol_mean = np.mean(self.pol[ind])
         self.pin_mean = np.mean(self.nb_in_vars['P'][ind])
-       
+        self.pi_mean  = np.mean(self.pi[ind])
+        self.pe_mean  = np.mean(self.pe[ind])
+        self.pth_mean = np.mean(self.pth[ind])
+        self.pabs_mean= self.pi_mean+self.pe_mean+self.pth_mean 
+        self.nbcd_mean = np.mean(self.nbcd[ind])        
         
     def power_balance(self):
         """
@@ -551,11 +562,12 @@ class output_1d:
         #ind = P>0.
         R0 = self.file.variables['RAXIS'][:]*0.01
         # average density in 10^20
-        ne_avg = self.ne_mean[:]*1e-20
+        ne_avg = self.ne_vavg[:]*1e-20
         #############################
         self.eff = R0*ne_avg*np.abs(self.nbcd)/P
         self.eff[np.isinf(self.eff)] = 0.
         self.eff[np.isnan(self.eff)] = 0.
+        self.eff_mean = np.mean(self.eff[self.inj_index])
 #        print "R0 ", R0, 'm'
 #        print "ne avg", ne_avg, '10e20 m^-3'
 #        print "Ip ", self.nbcd, 'A'
@@ -571,19 +583,20 @@ class output_1d:
                     self.pcx_mean/self.pin_mean*100.]
 
         categories = ['ST', 'OL', 'CX']
-        _radar_plot(N, values, categories)
+        _radar_plot(N, values, categories,  title='Losses')
         
         
     def plot_radar_deposition(self):
         """
         radar plot of absorbed power, NBCD, nf/ne, %powers to ions, efficiency, momentum        
         """
-        N=3
-        values = [self.psh_mean/self.pin_mean*100., self.pol_mean/self.pin_mean*100., \
-                    self.pcx_mean/self.pin_mean*100.]
-
-        categories = ['ST', 'OL', 'CX']
-        _radar_plot(N, values, categories)
+        N=4
+        
+        values = [self.pabs_mean/self.pin_mean*100., self.nbcd_mean*1e-3, \
+                    self.nf_mean/self.ne_mean*100., self.gi_mean*100.]#, \
+                    #self.eff_mean ]
+        categories = [r'$P_{ABS}$', r'$I_{CD}$', r'$n_f/n_e$ (%)', r'$G_i$']#, r'$\eta$']
+        _radar_plot(N, values, categories, title='Deposition')
 
 class absorption:
     """
@@ -1382,10 +1395,11 @@ def _radar_plot(N, values, categories, title):
     """    
     # We are going to plot the first line of the data frame.
     # But we need to repeat the first value to close the circular graph:
-    values += values[:1]    
+    values += values[:1]
     # What will be the angle of each axis in the plot? (we divide the plot / number of variable)
     angles = [n / float(N) * 2 * math.pi for n in range(N)]
     angles += angles[:1]
+    angles = np.array(angles)
      
     # Initialise the spider plot
     ax = plt.subplot(111, polar=True)
