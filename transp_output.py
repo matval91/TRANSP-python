@@ -45,7 +45,9 @@ class output_1d:
         self.fname = fname
         self.file = nc.Dataset(self.fname)
         self.runid = self.fname[0:8]
+        self.run = self.runid[0:5]
         self._set_vars()
+        self._calculate_all()
         
     def _set_vars(self):
         """
@@ -55,6 +57,16 @@ class output_1d:
         self._kinetic_vars()
         self._nb_vars() 
         self._performance_vars()
+
+    def _calculate_all(self):
+        """
+        """
+        self._average_kin()
+        self._calculate_scalars()
+        self._calculate_eff()
+        self._calculate_Ec()
+        self._calculate_gi()
+        self._calculate_tau()
         
     def _global_vars(self):
         """
@@ -108,7 +120,7 @@ class output_1d:
         self.nb_in_vars  = dict.fromkeys(keys)
         self.nb_in_names, self.nb_in_vars = \
             self._fill_dict(keys, varnames, self.nb_in_names, self.nb_in_vars)        
-        self.inj_index = np.where(self.nb_in_vars['P']>0.)[0]
+        self.inj_index = np.where(self.nb_in_vars['P']>0.9*np.max(self.nb_in_vars['P']>0.9))[0]
         
         
     def _nb_out_vars(self):
@@ -123,9 +135,9 @@ class output_1d:
             self._fill_dict(keys, varnames, self.nb_ioniz_names, self.nb_ioniz_vars)         
         
         keys     = ['n','orbloss', 'cx1', 'cx2', 'pi', 'pe',\
-                    'th', 'nbcd', 'cxprof', 'pMC']
+                    'th', 'nbcd', 'unbcd', 'pMC']
         varnames = ['BDENS_D','BPLIM_D', 'BPCXX_D', 'BPCXI_D', 'PBI_D', 'PBE_D', \
-                    'PBTH_D', 'CURB', 'PBCX_D', 'PBDEPMC_D']
+                    'PBTH_D', 'CURB', 'UCURB', 'PBDEPMC_D']
         self.nb_FKP_names = dict.fromkeys(keys)
         self.nb_FKP_vars  = dict.fromkeys(keys)
         self.nb_FKP_names, self.nb_FKP_vars = \
@@ -159,7 +171,7 @@ class output_1d:
         return name_dict, var_dict
     
     
-    def calculate_Ec(self):
+    def _calculate_Ec(self):
         """
         Ec = 14.8*Te*(A^{3/2}/ne*sum(nj*Zj/Aj))^2/3
         """
@@ -184,7 +196,7 @@ class output_1d:
             self.Ec[it,:] = Ec_prof
             self.ec_mean[it] = np.trapz(Ec_prof, self.rho)
             
-    def calculate_tau(self):
+    def _calculate_tau(self):
         """
         # A plasma
         tau_s=ts/3*ln(1+(E/EC)**1.5)
@@ -194,7 +206,7 @@ class output_1d:
         try:
             self.Ec.mean()
         except:
-            self.calculate_Ec()
+            self._calculate_Ec()
 
         # Checks density normalisation (it needs m^-3, not cm^-3)
 
@@ -218,14 +230,14 @@ class output_1d:
             self.taus_mean[it] = np.trapz(taus, self.rho)
 
         
-    def calculate_gi(self):
+    def _calculate_gi(self):
         """
         Gi = Ec/E0 int[0, E0/Ec]dy/(1+y**1.5)
         """
         try:
             self.Ec.mean()
         except:
-            self.calculate_Ec()
+            self._calculate_Ec()
         Ec = self.Ec; E0 = self.nb_in_vars['E']
         self.gi = np.zeros(np.shape(Ec), dtype=float)
         self.gi_mean = np.zeros(self.nt, dtype=float)
@@ -256,7 +268,7 @@ class output_1d:
         try:
             self.ne_mean.mean()
         except:
-            self.average_kin()
+            self._average_kin()
         
         f = plt.figure()
         axne = f.add_subplot(211)
@@ -324,7 +336,7 @@ class output_1d:
         try:
             self.pe.mean()
         except:
-            self._calculate_scalarpower()
+            self._calculate_scalars()
         
         f = plt.figure()
         axp = f.add_subplot(111)
@@ -390,23 +402,35 @@ class output_1d:
         if self.nt > 5:
             ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index), 5)
         ind = ind.astype(int)
-        self.calculate_scalars()
+        self._calculate_scalars()
 
         f = plt.figure()
-        axj  = f.add_subplot(121)
-        axcd = f.add_subplot(122)
-        axcd.plot(self.t, self.nbcd*1e-3, 'k', lw=3.)
+        axj  = f.add_subplot(221)
+        axcd = f.add_subplot(222)
+        axsh = f.add_subplot(223)
+        axeff = f.add_subplot(224)
+        
+        axcd.plot(self.t[self.inj_index], self.nbcd[self.inj_index]*1e-3, 'k', lw=2.3, label='shielded')
+        axcd.plot(self.t[self.inj_index], self.unbcd[self.inj_index]*1e-3, 'k--', lw=2.3, label='unshielded')   
+        axsh.plot(self.t[self.inj_index], 1.-self.shield[self.inj_index], 'k', lw=2.3)
+        axeff.plot(self.t[self.inj_index], self.eff[self.inj_index], 'k', lw=2.3)
         for i, el in enumerate(ind):
-            axj.plot(self.rho, self.nb_FKP_vars['nbcd'][el,:], col[i], label=r't = '+str(self.t[el]))
+            axj.plot(self.rho, self.nb_FKP_vars['nbcd'][el,:], col[i],lw=2.3, label=r't = '+str(self.t[el]))
         
         axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$A/m^2$]')
         axcd.set_xlabel(r't [s]'); axcd.set_ylabel(r'Driven current [kA]')
+        axsh.set_xlabel(r't [s]'); axsh.set_ylabel(r'Shielding by $e^-$ $I_{SH}/I_{UN}$')        
+        axeff.set_xlabel(r't [s]'); axeff.set_ylabel(r' $\eta=\frac{R_0 n_e I_{CD}}{P} [\frac{10^{20} A}{W m^2}]$')  
+        axeff.set_title(r'NBCD efficiency')
+        axeff.set_ylim([0,0.01])
         axj.legend(loc='best')
-        f.tight_layout(); f.suptitle(self.fname)
+        axcd.legend(loc='best')
+
+        f.tight_layout(); f.suptitle(self.run)
 
         plt.show()
        
-    def average_kin(self):
+    def _average_kin(self):
         """
         Calculates the average of densities and temperatures
         """
@@ -423,25 +447,32 @@ class output_1d:
             self.Ti_mean[i] = np.trapz(self.kin_vars['ti'][i,:], self.rho)
             self.nf_mean[i] = np.trapz(self.nb_FKP_vars['n'][i,:], self.rho)
         
-    def _calculate_scalarpower(self):
+    def _calculate_scalars(self):
         """
         Calculates scalar variables
         """
-        #CD
         self.pe = np.zeros(len(self.t), dtype=float)
         self.pi = np.zeros(len(self.t), dtype=float)
         self.pth = np.zeros(len(self.t), dtype=float)
-        self.pcxprof = np.zeros(len(self.t), dtype=float)
+        self.nbcd = np.zeros(len(self.t), dtype=float)
+        self.unbcd = np.zeros(len(self.t), dtype=float)
+        self.jboot = np.zeros(len(self.t), dtype=float)
+        self.shield = np.zeros(len(self.t), dtype=float)        
+                
         for i in range(len(self.t)):
             self.pe[i] = np.dot(self.nb_FKP_vars['pe'][i,:], self.dvol[i,:])
             self.pi[i] = np.dot(self.nb_FKP_vars['pi'][i,:], self.dvol[i,:])
             self.pth[i] = np.dot(self.nb_FKP_vars['th'][i,:], self.dvol[i,:])
-            self.pcxprof[i] = np.dot(self.nb_FKP_vars['cxprof'][i,:], self.dvol[i,:])
+            self.nbcd[i] = np.dot(self.nb_FKP_vars['nbcd'][i,:], self.darea[i,:])
+            self.unbcd[i] = np.dot(self.nb_FKP_vars['unbcd'][i,:], self.darea[i,:])            
+            self.jboot[i] = np.dot(self.perf_vars['jboot'][i,:], self.darea[i,:])
+            self.shield[i] = self.nbcd[i]/self.unbcd[i]           
+            
         self.pcx = self.nb_FKP_vars['cx1']+self.nb_FKP_vars['cx2']
         self.pol = self.nb_FKP_vars['orbloss']
         
         self.psh = self.nb_ioniz_vars['st']
-        ind = np.where(self.nb_in_vars['P']>0.9*np.max(self.nb_in_vars['P']))
+        ind = self.inj_index
         self.psh_mean = np.mean(self.psh[ind])
         self.pcx_mean = np.mean(self.pcx[ind])
         self.pol_mean = np.mean(self.pol[ind])
@@ -451,7 +482,7 @@ class output_1d:
     def power_balance(self):
         """
         """            
-        self._calculate_scalarpower()
+        self._calculate_scalars()
         pbal = np.mean(self.nb_in_vars['P']-self.psh - \
             self.pe-self.pi-self.pth-self.pol-self.pcx)*1e-6
         print "POWER BALANCE:", pbal
@@ -459,17 +490,7 @@ class output_1d:
         print "psh+pol ", np.mean(self.pol+self.psh)*1e-6
         print "pe+pi+pth ", np.mean(self.pe+self.pi+self.pth)*1e-6
         print "pcx " , np.mean(self.pcxprof)*1e-6
-        
-    def calculate_scalars(self):
-        """
-        """
-        self.nbcd = np.zeros(len(self.t), dtype=float)
-        self.jboot = np.zeros(len(self.t), dtype=float)
-        for i in range(len(self.t)):
-            self.nbcd[i] = np.dot(self.nb_FKP_vars['nbcd'][i,:], self.darea[i,:])
-            self.jboot[i] = np.dot(self.perf_vars['jboot'][i,:], self.darea[i,:])
-        self._calculate_scalarpower()
-        self.average_kin()
+
         
     def plot_performance(self):
         """
@@ -479,7 +500,7 @@ class output_1d:
         except:
             print "No bootstrap data"
             return
-        self.calculate_scalars()
+        self._calculate_scalars()
         f = plt.figure()
         axcd = f.add_subplot(121)
         axcd.plot(self.t, self.jboot*1e-3, 'k', lw=3.)
@@ -498,21 +519,33 @@ class output_1d:
         
         x=self.t
         y=[(self.pi+self.pe+self.pth)*1e-6, self.pcx*1e-6, self.pol*1e-6, self.psh*1e-6]
+        pin = self.nb_in_vars['P']
         labels = ['Absorbed', 'CX-losses', 'Orbit losses', 'Shine-through']
         xlabel = r'Time [s]'
         ylabel = r'Power [MW]'
         
-        _cumulative_plot(x,y,labels, xlabel, ylabel, self.runid)
+        f=plt.figure()
+        axfrac = f.add_subplot(111)
+        for i, el in enumerate(y):
+            axfrac.plot(self.t, el/pin*1e6*100., color=col[i], lw=2.3, label=labels[i])
+        axfrac.legend(loc='best')
+        axfrac.set_xlabel(xlabel)
+        axfrac.set_ylabel(r'Fraction (%)')
+        axfrac.set_ylim([0, 70])
+        axfrac.set_title(self.run)
+        
+        _cumulative_plot(x,y,labels, xlabel, ylabel, self.run)
 
-    def calc_eff(self):                
+
+    def _calculate_eff(self):                
         """
         Method to calculate the current-drive efficiency from the beam:
-        eta = R0*n_e*I_CD/P
+        eta = R0*n_e*I_CD/P [10^20 A / (W m^2)]
         """                
         try:
             self.nbcd.mean()
         except:
-            self.calculate_scalars()
+            self._calculate_scalars()
         #Computing the power coupled to plasma: Pini-Pend+Pres
         P = self.nb_in_vars['P']
         #ind = P>0.
@@ -527,12 +560,24 @@ class output_1d:
 #        print "ne avg", ne_avg, '10e20 m^-3'
 #        print "Ip ", self.nbcd, 'A'
 #        print "P  ", P, 'W'
-        print "CD efficiency: ", self.eff, " [10^20 A / (W m^2)]"
+#        print "CD efficiency: ", self.eff, " [10^20 A / (W m^2)]"
 
     def plot_radar_plost(self):
         """
         """
-        self.calculate_scalars()
+        self._calculate_scalars()
+        N=3
+        values = [self.psh_mean/self.pin_mean*100., self.pol_mean/self.pin_mean*100., \
+                    self.pcx_mean/self.pin_mean*100.]
+
+        categories = ['ST', 'OL', 'CX']
+        _radar_plot(N, values, categories)
+        
+        
+    def plot_radar_deposition(self):
+        """
+        radar plot of absorbed power, NBCD, nf/ne, %powers to ions, efficiency, momentum        
+        """
         N=3
         values = [self.psh_mean/self.pin_mean*100., self.pol_mean/self.pin_mean*100., \
                     self.pcx_mean/self.pin_mean*100.]
@@ -672,7 +717,7 @@ class absorption:
         ax = f.add_subplot(111)
         #hb = ax.hexbin(x, y, gridsize=100, cmap=my_cmap)
         hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-        cb = f.colorbar(hb[3], ax=ax)
+        f.colorbar(hb[3], ax=ax)
         ax.set_xlabel('R')
         ax.set_ylabel('z')
 
@@ -696,7 +741,7 @@ class absorption:
         f=plt.figure()
         ax=f.add_subplot(111)
         hb = ax.hist2d(x, y, bins=100, cmap=my_cmap, normed=True)
-        cb = f.colorbar(hb[3], ax=ax)
+        f.colorbar(hb[3], ax=ax)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         theta=np.arange(0,6.3,0.02*6.28)
@@ -1075,7 +1120,6 @@ class fbm_time:
         
         for i in range(self.nslices):
             fname = runid+'_fi_'+str(i+1)+'.cdf'
-            self.nslices += 1
             print fname
             tmp = fbm(fname)
             self.timeslices[i] = tmp
@@ -1127,35 +1171,72 @@ class fbm_time:
         
         plt.show()
 
-    def plot_frames(self):
+
+    def plot_spaceframes(self):
         """
         """
         
-        n_cols = 3
-        n_rows = self.nslices/3
-        if self.nslices%3!=0:
-            n_rows=n_rows+1
+        n_cols = self.nslices
+        n_rows = 1
+
         vmax = np.max([i.f_Ep_int for i in self.timeslices])
-        f, axarr = plt.subplots(n_cols, n_rows, sharex=True, sharey=True)        
+        f, axarr = plt.subplots(n_rows, n_cols, sharex=True, sharey=True)
+        xlim, ylim = [0.5, 1.2], [-0.8, 0.8]
+        f.suptitle(r'Normalized fast ion distribution function', fontsize=16)
         for i in range(self.nslices):
-            ind_row = i/n_rows
-            ind_col = i%n_rows
-            CB=axarr[ind_row, ind_col].contourf(self.timeslices[i].dict_dim['R'], \
-                    self.timeslices[i].dict_dim['z'], self.timeslices[i].f_Ep_int, \
+            ind_col = i
+            CB=axarr[ind_col].contourf(self.timeslices[i].dict_dim['R'], \
+                    self.timeslices[i].dict_dim['z'], self.timeslices[i].f_Ep_int.T, \
                     20, cmap=my_cmap, vmin=0, vmax=vmax)
+            axarr[ind_col].plot(self.R_w, self.z_w, 'k', lw=3.)
             #plt.colorbar(CB)        
-            axarr[ind_row, ind_col].set_xlabel(r'R [m]')
-            axarr[ind_row, ind_col].set_ylabel(r'z [m]')
-            axarr[ind_row, ind_col].set_xlim([-0.5, 1.6])
-            axarr[ind_row, ind_col].set_ylim([-0.8, 0.8])
-            axarr[ind_row, ind_col].set_title(str(self.timeslices[i].time))
-            axarr[ind_row, ind_col].plot(self.R_w, self.z_w, 'k', lw=2.5)
+            axarr[ ind_col].set_xlabel(r'R [m]')
+            axarr[ ind_col].set_ylabel(r'z [m]')
+            axarr[ ind_col].set_xlim(xlim)
+            axarr[ ind_col].set_ylim(ylim)
+            axarr[ ind_col].set_title(str(self.timeslices[i].time))
+            r, zt = self.timeslices[i].rsurf, self.timeslices[i].zsurf            
+            ind=np.linspace(0, np.shape(r)[0]-1, 5)            
+            for j in ind:
+                axarr[ind_col].plot(r[j,:], zt[j,:], 'k', lw=1.1)
+        
         f.tight_layout()
         f.subplots_adjust(right=0.8)
         cbar_ax = f.add_axes([0.85, 0.15, 0.05, 0.7])
         f.colorbar(CB, cax=cbar_ax)        
-        
+        f.subplots_adjust(top=0.88)
         plt.show()
+
+
+#    def plot_frames(self):
+#        """
+#        """
+#        
+#        n_cols = 3
+#        n_rows = self.nslices/3
+#        if self.nslices%3!=0:
+#            n_rows=n_rows+1
+#        vmax = np.max([i.f_Ep_int for i in self.timeslices])
+#        f, axarr = plt.subplots(n_cols, n_rows, sharex=True, sharey=True)        
+#        for i in range(self.nslices):
+#            ind_row = i/n_rows
+#            ind_col = i%n_rows
+#            CB=axarr[ind_row, ind_col].contourf(self.timeslices[i].dict_dim['R'], \
+#                    self.timeslices[i].dict_dim['z'], self.timeslices[i].f_Ep_int, \
+#                    20, cmap=my_cmap, vmin=0, vmax=vmax)
+#            #plt.colorbar(CB)        
+#            axarr[ind_row, ind_col].set_xlabel(r'R [m]')
+#            axarr[ind_row, ind_col].set_ylabel(r'z [m]')
+#            axarr[ind_row, ind_col].set_xlim([-0.5, 1.6])
+#            axarr[ind_row, ind_col].set_ylim([-0.8, 0.8])
+#            axarr[ind_row, ind_col].set_title(str(self.timeslices[i].time))
+#            axarr[ind_row, ind_col].plot(self.R_w, self.z_w, 'k', lw=2.5)
+#        f.tight_layout()
+#        f.subplots_adjust(right=0.8)
+#        cbar_ax = f.add_axes([0.85, 0.15, 0.05, 0.7])
+#        f.colorbar(CB, cax=cbar_ax)        
+#        
+#        plt.show()
 
        
     def make_gif_Ep(self):
