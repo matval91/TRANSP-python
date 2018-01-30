@@ -542,7 +542,7 @@ class output_1d:
         axfrac.legend(loc='best')
         axfrac.set_xlabel(xlabel)
         axfrac.set_ylabel(r'Fraction (%)')
-        axfrac.set_ylim([0, 70])
+        axfrac.set_ylim([0, 100])
         axfrac.set_title(self.run)
         
         _cumulative_plot(x,y,labels, xlabel, ylabel, self.run)
@@ -859,6 +859,66 @@ class absorption_time:
                 wall_xy = [self.R_w])
         os.chdir(olddir)
 
+
+class particles:
+    """
+    Handles the particles position
+     u'nstat_track_xja_D_NBI',
+     
+     u'track_phiin_D_NBI',
+     u'track_phiout_D_NBI',
+
+     u'track_rin_D_NBI',
+     u'track_rout_D_NBI',
+
+     u'track_zin_D_NBI',
+     u'track_zout_D_NBI',
+
+     u'track_einj_D_NBI',
+     u'track_sinj_D_NBI', #weight
+
+     u'track_xl_D_NBI',
+     u'track_pdep_D_NBI',
+     u'track_vpv_dep_D_NBI',
+     u'track_dr_flr_D_NBI',
+     u'track_dz_flr_D_NBI',
+     u'track_de_flr_D_NBI',
+     u'track_dvpv_flr_D_NBI',
+
+    
+    """
+    def __init__(self, infile_n):
+        self.infile_n = infile_n
+        self.infile = nc.Dataset(infile_n)
+        self._read_info()
+        self.dictin = {'R':'track_rin_D_NBI', 'phi':'track_phiin_D_NBI', \
+                    'z':'track_zin_D_NBI', 'pitch':, 't':,'TIMELST'}
+        
+        
+    def _readwall(self):
+        """
+        Hidden method to read the wall
+        """
+        in_w_fname='/home/vallar/TCV/TCV_vessel_coord.dat'
+        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
+
+        self.R_w = np.array(wall[0,:])
+        self.z_w = np.array(wall[1,:])        
+        
+    def _read_info(self):
+        """
+        """         
+        self.runid = ''
+        self.tok = ''        
+        runid = self.infile.variables['TRANSP_RUNID'][:]
+        for i in runid:
+            self.runid += i
+        tok   = self.infile.variables['TOKAMAK'][:]
+        for i in tok:
+            self.tok += i
+        self.time  = round(self.infile.variables['TIME'][:], 3)
+        self.shot = self.runid[0:5]
+        self._readwall()
 
 class fbm:
     """
@@ -1375,15 +1435,7 @@ def _cumulative_plot(x,y,labels, xlabel, ylabel, title):
             
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    
-    ax2=ax.twinx()
-    ticks1 = ax.get_yticks()
-    ax2.set_yticks(ticks1)
-    ax2.set_yticklabels(ticks1/np.max(tmpy))
-    ax2.set_ylim(ax.get_ylim())
-    ax2.set_ylabel('Fraction (%)')
-    ax.legend(loc='best')
-    
+    ax.legend(loc='best')    
     ax.set_title(title)
     
     
