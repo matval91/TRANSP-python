@@ -75,8 +75,8 @@ class output_1d:
         """
         self.t  = self.file['TIME'][:]
         self.nt = len(self.t)
-        self.darea = np.array(self.file.variables['DAREA'][:])
-        self.dvol  = np.array(self.file.variables['DVOL'][:])
+        self.darea = np.array(self.file.variables['DAREA'][:])*1e-4
+        self.dvol  = np.array(self.file.variables['DVOL'][:])*1e-6
         self.rho = np.linspace(0, 1, num=len(self.darea[0,:]), dtype=float)
 
         self._imp_vars()
@@ -125,7 +125,9 @@ class output_1d:
         
     def _nb_out_vars(self):
         """
-        Gathers NB variables (nfast, pfast, pe, pi, nbcd) from netcdf file
+        Gathers NB variables (nfast, orbloss, cx, pi, pe, pth, nbcd, unbcd, 
+                              ptot(ini-end), press of EP) from netcdf file
+        Everything is imperial system (i.e. curb is A/cm**2, n is cm**-3, etc.)
         """
         keys     = ['st']
         varnames = ['PBSHINE_D']
@@ -135,27 +137,81 @@ class output_1d:
             self._fill_dict(keys, varnames, self.nb_ioniz_names, self.nb_ioniz_vars)         
         
         keys     = ['n','orbloss', 'cx1', 'cx2', 'pi', 'pe',\
-                    'th', 'nbcd', 'unbcd', 'pMC']
+                    'th', 'nbcd', 'unbcd', 'pMC', 'press_EP']
         varnames = ['BDENS_D','BPLIM_D', 'BPCXX_D', 'BPCXI_D', 'PBI_D', 'PBE_D', \
-                    'PBTH_D', 'CURB', 'UCURB', 'PBDEPMC_D']
+                    'PBTH_D', 'CURB', 'UCURB', 'PBDEPMC_D', 'PTOWB']
         self.nb_FKP_names = dict.fromkeys(keys)
         self.nb_FKP_vars  = dict.fromkeys(keys)
         self.nb_FKP_names, self.nb_FKP_vars = \
             self._fill_dict(keys, varnames, self.nb_FKP_names, self.nb_FKP_vars) 
         self.nb_FKP_vars['n'] *= 1e6
-     
+        self.nb_FKP_vars['nbcd']*=1e4
+        self.nb_FKP_vars['unbcd']*=1e4
+        self.nb_FKP_vars['pi']*=1e6
+        self.nb_FKP_vars['pe']*=1e6
+       
     def _performance_vars(self):
         """
         Gathers performance variables (jbootstrap, beta, li) from netcdf file
+        ), (u'CURBS', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBS(TIME3, X)
+            units: AMPS/CM2
+            long_name: BOOTSTRAP CURRENT
+        unlimited dimensions:
+        current shape = (101, 40)
+        filling off
+        ), (u'CURBSNEO', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBSNEO(TIME3, X)
+            units: AMPS/CM2
+            long_name: NEO-gk Bootstrap Current
+        unlimited dimensions:
+        current shape = (101, 40)
+        filling off
+        ), (u'CURBSWNC', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBSWNC(TIME3, X)
+            units: AMPS/CM2
+            long_name: NCLASS Bootstrap Current
+        unlimited dimensions:
+        current shape = (101, 40)
+        filling off
+        ), (u'CURBSEPS', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBSEPS(TIME3, X)
+            units: AMPS/CM2
+            long_name: Aspect Ratio Bootstrap Current
+        unlimited dimensions:
+        current shape = (101, 40)
+        filling off
+        ), (u'CURBSSAU', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBSSAU(TIME3, X)
+            units: AMPS/CM2
+            long_name: Sauter Bootstrap Current as Used
+        unlimited dimensions:
+        current shape = (101, 40)
+        filling off
+        ), (u'CURBSSAU0', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBSSAU0(TIME3, X)
+            units: AMPS/CM2
+            long_name: Sauter Bootstrap Current Original Form
+        unlimited dimensions:
+        current shape = (101, 40)
+        filling off
+        ), (u'CURBSSAU1', <type 'netCDF4._netCDF4.Variable'>
+        float32 CURBSSAU1(TIME3, X)
+            units: AMPS/CM2
+            long_name: Sauter Bootstrap Current CS Chang Form
+        unlimited dimensions:
+        current shape = (101, 40)
         """        
-        keys     = ['jboot']
-        varnames = ['CURBS']
+        keys     = ['jboot', 'jbootsau', 'jbootneogk', 'jbootneo', 'jbootsauor']
+        varnames = ['CURBS', 'CURBSSAU', 'CURBSNEO', 'CURBSWNC', 'CURBSSAU0']
         self.perf_names = dict.fromkeys(keys)
         self.perf_vars  = dict.fromkeys(keys)
         self.perf_names, self.perf_vars = \
             self._fill_dict(keys, varnames, self.perf_names, self.perf_vars)
-            
-            
+        for el in self.perf_vars:
+            self.perf_vars[el] *= 1e4
+
+
     def _fill_dict(self, keys, varnames, name_dict, var_dict):
         """
         Fills dictionaries
@@ -330,6 +386,12 @@ class output_1d:
         self._plot_deposition_1d()
         self._plot_deposition_prof()
 
+    def plot_deposition_timeslice(self, timeslice):
+        """
+        """
+        self._plot_deposition_prof(timeslice=timeslice)
+        
+
     def _plot_deposition_1d(self):
         """
         """
@@ -352,7 +414,7 @@ class output_1d:
         plt.show()     
         
         
-    def _plot_deposition_prof(self):
+    def _plot_deposition_prof(self, **kwargs):
         """
         Plots deposition to ions, electrons
         """
@@ -361,9 +423,14 @@ class output_1d:
         except:
             print "No Pi data"
             return
-        if self.nt > 5:
-            ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index), 5)
-        ind = ind.astype(int)
+        if "timeslice" in kwargs:
+            ind = np.array(np.argmin(np.abs(self.t-kwargs['timeslice'])))
+            ind=[ind]
+        else:
+            if self.nt > 5:
+                ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index), 5)
+                ind = ind.astype(int)
+                
         f = plt.figure()
         axe = f.add_subplot(221)
         axi = f.add_subplot(222, sharex=axe)
@@ -372,16 +439,16 @@ class output_1d:
         x=self.rho
         for index, i in enumerate(ind):
             lab=r't='+str(self.t[i])
-            axi.plot(x, self.nb_FKP_vars['pi'][i,:], col[index], label=lab)
-            axe.plot(x, self.nb_FKP_vars['pe'][i,:], col[index], label=lab)
-            axn.plot(x, self.nb_FKP_vars['n'][i, :]/self.kin_vars['ne'][i,:]*100., col[index], label=lab)
-            axj.plot(x, self.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index], label=lab)
+            axi.plot(x, self.nb_FKP_vars['pi'][i,:]*1e-3, col[index], lw=2.3, label=lab)
+            axe.plot(x, self.nb_FKP_vars['pe'][i,:]*1e-3, col[index], lw=2.3, label=lab)
+            axn.plot(x, self.nb_FKP_vars['n'][i, :]/self.kin_vars['ne'][i,:]*100., col[index], lw=2.3, label=lab)
+            axj.plot(x, self.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index], lw=2.3, label=lab)
             
             
-        axe.set_xlabel(r'$\rho$'); axe.set_ylabel(r'$P_e$ [$W/m^3$]')
-        axi.set_xlabel(r'$\rho$'); axi.set_ylabel(r'$P_i$ [$W/m^3$]')
+        axe.set_xlabel(r'$\rho$'); axe.set_ylabel(r'$P_e$ [$kW/m^3$]')
+        axi.set_xlabel(r'$\rho$'); axi.set_ylabel(r'$P_i$ [$kW/m^3$]')
         axn.set_xlabel(r'$\rho$'); axn.set_ylabel(r'$n_f/n_e$ (%)')
-        axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$A/m^2$]')
+        axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$kA/m^2$]')
 
         axe.legend(loc='best')
         f.suptitle(self.fname)
@@ -415,9 +482,9 @@ class output_1d:
         axsh.plot(self.t[self.inj_index], 1.-self.shield[self.inj_index], 'k', lw=2.3)
         axeff.plot(self.t[self.inj_index], self.eff[self.inj_index], 'k', lw=2.3)
         for i, el in enumerate(ind):
-            axj.plot(self.rho, self.nb_FKP_vars['nbcd'][el,:], col[i],lw=2.3, label=r't = '+str(self.t[el]))
+            axj.plot(self.rho, self.nb_FKP_vars['nbcd'][el,:]*1e-3, col[i],lw=2.3, label=r't = '+str(self.t[el]))
         
-        axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$A/m^2$]')
+        axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'j shielded [$kA/m^2$]')
         axcd.set_xlabel(r't [s]'); axcd.set_ylabel(r'Driven current [kA]')
         axsh.set_xlabel(r't [s]'); axsh.set_ylabel(r'Shielding by $e^-$    $1-I_{SH}/I_{UN}$')        
         axeff.set_xlabel(r't [s]'); axeff.set_ylabel(r' $\eta=\frac{R_0 n_e I_{CD}}{P} [\frac{10^{20} A}{W m^2}]$')  
@@ -465,6 +532,12 @@ class output_1d:
         self.unbcd = np.zeros(len(self.t), dtype=float)
         self.jboot = np.zeros(len(self.t), dtype=float)
         self.shield = np.zeros(len(self.t), dtype=float)        
+
+        self.jbootSAU   = np.zeros(len(self.t), dtype=float)
+        self.jbootneogk = np.zeros(len(self.t), dtype=float)
+        self.jbootneo   = np.zeros(len(self.t), dtype=float)
+        self.jbootSAUor = np.zeros(len(self.t), dtype=float)
+
                 
         for i in range(len(self.t)):
             self.pe[i] = np.dot(self.nb_FKP_vars['pe'][i,:], self.dvol[i,:])
@@ -474,7 +547,13 @@ class output_1d:
             self.unbcd[i] = np.dot(self.nb_FKP_vars['unbcd'][i,:], self.darea[i,:])            
             self.jboot[i] = np.dot(self.perf_vars['jboot'][i,:], self.darea[i,:])
             self.shield[i] = self.nbcd[i]/self.unbcd[i]           
-            
+
+            self.jbootSAU[i]   = np.dot(self.perf_vars['jbootsau'][i,:], self.darea[i,:])
+            self.jbootneogk[i] = np.dot(self.perf_vars['jbootneogk'][i,:], self.darea[i,:])
+            self.jbootneo[i]   = np.dot(self.perf_vars['jbootneo'][i,:], self.darea[i,:])
+            self.jbootSAUor[i] = np.dot(self.perf_vars['jbootsauor'][i,:], self.darea[i,:])
+
+
         self.pcx = self.nb_FKP_vars['cx1']+self.nb_FKP_vars['cx2']
         self.pol = self.nb_FKP_vars['orbloss']
         self.psh = self.nb_ioniz_vars['st']
@@ -506,6 +585,17 @@ class output_1d:
     def plot_performance(self):
         """
         """
+        #=====================================================================================
+        # SET TEXT FONT AND SIZE
+        #=====================================================================================
+        #plt.rc('font', family='serif', serif='Palatino')
+        #plt.rc('text', usetex=True)
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)
+        #=====================================================================================    
+
+
         try:
             self.perf_vars['jboot'].mean()
         except:
@@ -513,10 +603,25 @@ class output_1d:
             return
         self._calculate_scalars()
         f = plt.figure()
-        axcd = f.add_subplot(121)
-        axcd.plot(self.t, self.jboot*1e-3, 'k', lw=3.)
+        axcd = f.add_subplot(111)
+#        self.jbootneogk = np.zeros(len(self.t), dtype=float)
+#        self.jbootneo   = np.zeros(len(self.t), dtype=float)
+#        self.jbootSAUor = np.zeros(len(self.t), dtype=float)        
+        
+        axcd.plot(self.t, self.jboot*1e-3, 'k', lw=2.3, label='JBS')
+        axcd.plot(self.t, self.jbootSAU*1e-3, 'r', lw=2.3, label='SAUTER')
+        axcd.plot(self.t, self.jbootneogk*1e-3, 'b', lw=2.3, label='NEO GK')
+        axcd.plot(self.t, self.jbootneo*1e-3, 'c', lw=2.3, label='NEO')
+        axcd.plot(self.t, self.jbootSAUor*1e-3, 'm', lw=2.3, label='SAUTER OR')
+
+        ### TEMP THING
+        d=np.loadtxt('/home/vallar/ibs_59331.dat', delimiter=',')
+        axcd.plot(d[:,0], d[:,1], 'k--', lw=2.5, label='EXP')
+
         axcd.set_xlabel(r't [s]'); axcd.set_ylabel(r'Bootstrap current [kA]')
         f.tight_layout(), f.suptitle(self.fname)
+        axcd.legend(loc='best')
+        axcd.grid('on')
         plt.show()
 
     def plot_powerbalance(self):
@@ -597,6 +702,20 @@ class output_1d:
                     #self.eff_mean ]
         categories = [r'$P_{ABS}$', r'$I_{CD}$', r'$n_f/n_e$ (%)', r'$G_i$']#, r'$\eta$']
         _radar_plot(N, values, categories, title='Deposition')
+
+
+    def write_timeslice(self, timeslice):
+        """
+        Method writing a timeslice of a simulation
+        rho, power transferred to electrons and ions, the fast ion density and pressure and the current drive
+        """
+        ind = np.argmin(np.abs(self.t-timeslice))
+        data = [self.rho, self.nb_FKP_vars['pe'][ind,:], self.nb_FKP_vars['pi'][ind,:],\
+                self.nb_FKP_vars['n'][ind,:], self.nb_FKP_vars['press_EP'][ind,:],\
+                self.nb_FKP_vars['nbcd'][ind,:]]
+        header = 'rho tor\t  Pe[W/m3]\t Pi[W/m3]\t n[1/m3]\t press[Pascal]\t nbcd[A/m2]'
+        out_fname='output_'+str(timeslice*100.)+'.dat'
+        np.savetxt(out_fname, np.transpose(data), fmt='%.5e', delimiter='\t', header=header)
 
 class absorption:
     """
@@ -892,7 +1011,7 @@ class particles:
         self.infile = nc.Dataset(infile_n)
         self._read_info()
         self.dictin = {'R':'track_rin_D_NBI', 'phi':'track_phiin_D_NBI', \
-                    'z':'track_zin_D_NBI', 'pitch':, 't':,'TIMELST'}
+                    'z':'track_zin_D_NBI', 'pitch':'A', 't':'TIMELST'}
         
         
     def _readwall(self):
