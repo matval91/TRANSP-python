@@ -25,7 +25,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 
-import ReadEQDSK_MV
+import ReadEQDSK
 #matplotlib.use("TkAgg")
 
 sty = tksty.TKSTY()
