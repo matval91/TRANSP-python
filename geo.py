@@ -35,24 +35,6 @@ if sys.platform =='darwin':
 else:
     sys.path.append('/home/vianello/pythonlib/signalprocessing')
 
-
-#def interp2d(R,Z,field):
-#    return interpolate.RectBivariateSpline(R,Z,np.transpose(field))
-## for the computation of the area we use the same approach as TCVLIUQETree
-
-
-#def greenArea(vsx, vsy):
-#    a = 0
-#    x0, y0 = vsx[0], vsy[0]
-#    for [x1, y1] in zip(vsx[1:], vsy[1:]):
-#        dx = x1-x0
-#        dy = y1-y0
-#        a += 0.5*(y0*dx - x0*dy)
-#        x0 = x1
-#        y0 = y1
-#    return a
-
-
 class GEO:
 
     """
@@ -389,14 +371,25 @@ class GEO:
             self.moments.mean()
         except:
             self._eqflux()
-
-        tlbl = 'Time'.ljust(20) + 'Seconds   '
+        # Now need to conver the 4D array of momentum [time, rho, order, type] to 3D array of momentum:
+        # [time, rho, order*type].
+        # order is the number of n*theta used (the, 2the, 3the,...,order*the), type is fixed to 4 since we associate
+        # 2 periodic functions to the each of the 2 variables R,Z
+        tmpmoments = np.transpose(self.moments, (0,1,3,2))
+        self.moments_uf = np.reshape(tmpmoments, (self.nt, self.n_rho,\
+                                                  self.mom_order*self.mom_type))
+        self.moments_uf *= 100 #in centimeters
+        tlbl   = 'Time'.ljust(20) + 'Seconds   '
         rholbl = ' RHOTOR'.ljust(30)
-        ilabel = ' MOMENT INDEX'.ljust(30)
-        tlabel = ' MOMENT TYPE'.ljust(30)
-        lbl = ' FOURIER MOMENTS'.ljust(20)+' CM'.ljust(10)
-        tlabel = 'Q profile'+' '*21           
-            
+        ilbl   = ' MOMENT INDEX'.ljust(30)
+        zlbl   = ' FOURIER MOMENTS'.ljust(20)+' CM'.ljust(10)
+        
+        uf_d = {'pre': 'C', 'ext': 'MMX', 'shot': self.shot,
+                'grid': {'X': {'lbl': tlbl, 'arr': self.time_u},
+                         'Y': {'lbl': rholbl, 'arr': self.rho},
+                         'Z': {'lbl': ilbl, 'arr': np.arange(self.mom_order*(self.mom_type))}},
+                'data': {'lbl': zlbl, 'arr': self.moments_uf}}
+        ufiles.WU(uf_d, udir=self.path)            
             
     def store_qprof(self):
         """
@@ -776,8 +769,7 @@ class geo_indict(GEO):
                                                                                          arr[:, 2], arr[:, 3], 
                                                                                          nthe=self.n_the,
                                                                                          endpoint = True)
-
-	    # now add the same evaluation for the separatrix assumed at rho=1
+	        # now add the same evaluation for the separatrix assumed at rho=1
             if self.tbeg!=self.tend:
                 xd, yd = self.rc[itime,: ], self.zc[itime,: ]
             else:
@@ -800,9 +792,7 @@ class geo_indict(GEO):
 	
 	#self.plot_input(self.r_plot[:,-1,:], self.z_plot[:,-1,:], 'RZ LCFS after moments')
 
-
-
-                
+               
     def _calc_RBtor(self):
         """
         Hidden method to compute the Fprofile on the appropriate rho-toroidal
