@@ -45,7 +45,6 @@ class GEO:
     This GEO class defines the common function among the two inherited classes indict and eqdsk.
     Input:
     ---------------
-
     A dictionary containing all the needed information. The dictionary may
     be created through a GUI or directly given
     Dictionary is of the form
@@ -356,7 +355,35 @@ class GEO:
                 'data': {'lbl': zlbl, 'arr': self.z_plot}}
         ufiles.WU(uf_d, udir=self.path)
 
+    def store_mom_LCFS(self):
+        """
+        Store the u-file of the moments of the isoflux surfaces - only LCFS
 
+        Parameters
+        ----------
+        None
+        -------
+        None
+        """
+        try:
+            self.moments.mean()
+        except:
+            self._eqflux_LCFS()
+
+        self.moments *= 100 #in centimeters
+        tlbl   = 'Time'.ljust(20) + 'Seconds   '
+        ilbl   = ' MOMENT INDEX'.ljust(30)
+        mlbl   = ' MOMENT TYPE'.ljust(30)
+        zlbl   = ' FOURIER MOMENTS'.ljust(20)+' CM'.ljust(10)
+        
+        uf_d = {'pre': 'M', 'ext': 'MRY', 'shot': self.shot,
+                'grid': {'X': {'lbl': tlbl, 'arr': self.time_u},
+                         'Y': {'lbl': ilbl, 'arr': np.arange(self.mom_order)},
+                         'Z': {'lbl': mlbl, 'arr': np.arange(self.mom_type)+1.}},
+                'data': {'lbl': zlbl, 'arr': self.moments}}
+        ufiles.WU(uf_d, udir=self.path) 
+        
+        
     def store_mom(self):
         """
         Store the u-file of the moments of the isoflux surfaces
@@ -714,6 +741,7 @@ class geo_indict(GEO):
 #                self.area[itime, jrho] = np.abs(_dummy)
 #        return self.area
 
+
     def _eqflux(self):
         """
         It compute the appropriate toroidal flux in R, Z and the appropriate
@@ -784,14 +812,57 @@ class geo_indict(GEO):
                                                                                  nthe=self.n_the,
                                                                                  endpoint = True)
             # now add the magnetic axis (rho=0)
+            # to moments
+            r0mom = np.full(self.mom_order, self.r_axis[itime])
+            z0mom = np.full(self.mom_order, self.z_axis[itime])
+            self.moments = np.insert(self.moments, 0, self.r_axis[itime], axis=-2)
+            z0mom = np.full(self.n_rho, self.z_axis[itime])
+            self.moments[0,:,0,2:3] = [z0mom, z0mom]   
+            #self.moments[itime, 0, :, 0] = r0mom
+            #self.moments[itime, 0, :, 2] = z0mom
+            # to r_plot and z_plot
             r0=np.full(self.n_the, self.r_axis[itime])
             z0=np.full(self.n_the, self.z_axis[itime])
             self.r_plot[itime, 0, :] = r0
             self.z_plot[itime, 0, :] = z0
 
-	
 	#self.plot_input(self.r_plot[:,-1,:], self.z_plot[:,-1,:], 'RZ LCFS after moments')
 
+    def _eqflux_LCFS(self):
+        """
+        eqflux only for LCFS
+        It compute the appropriate toroidal flux in R, Z and the appropriate
+        momentum flux representation. It uses eqtools
+        to move from psiRZ to psitorRZ
+        and then loop for the appropriate momenta.
+        In this way we have appropriate values
+        """
+        # ok now we can compute the appropriate momentum
+        # we need on a rhotor grid
+        self.moments = np.zeros((self.nt, self.mom_order, self.mom_type))
+        # the moments are a function of
+        # (time, surface label, mom_order, mom_type)
+        # R (time, rho, theta) this will be saved in ufile
+        self.r_plot = np.zeros((self.nt, self.n_the))
+        # Z (time, rho, theta) this will be saved in ufile
+        self.z_plot = np.zeros((self.nt, self.n_the))
+        for tshot, itime in zip(self.time_u, range(self.nt)):
+            print('TSHOT', tshot) 
+            if self.tbeg!=self.tend:
+                xd, yd = self.rc[itime,: ], self.zc[itime,: ]
+            else:
+                xd, yd = self.rc, self.zc
+            arr = descu(xd[~np.isnan(xd)],yd[~np.isnan(xd)], self.mom_order)
+            self.moments[itime, :, 0] = arr[:, 0]
+            self.moments[itime, :, 1] = arr[:, 1]
+            self.moments[itime, :, 2] = arr[:, 2]
+            self.moments[itime, :, 3] = arr[:, 3]
+            self.r_plot[itime, :], self.z_plot[itime, :] = mom2rz.mom2rz(arr[:, 0], arr[:, 1],
+                                                                         arr[:, 2], arr[:, 3], 
+                                                                         nthe=self.n_the,
+                                                                         endpoint = True)
+
+	#self.plot_input(self.r_plot[:,:], self.z_plot[:,:], 'RZ LCFS after moments')
                
     def _calc_RBtor(self):
         """
