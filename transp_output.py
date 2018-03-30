@@ -1072,7 +1072,7 @@ class fbm:
         self.dict_dim['z'] *= 0.01
         self.dict_dim_MCgrid = dict.copy(self.dict_dim)
 
-        self.fdist_MCgrid = 0.5*self.infile.variables['F_D_NBI'][:]*1e6 #converting to m
+        self.fdist_MCgrid = 0.5*self.infile.variables['F_D_NBI'][:]*1e6 #converting to m and normalizing over angle
         
         # This fdist_notnorm is the same as ascot distributions, this is useful because
         # I can copy the methods in this way       
@@ -1292,7 +1292,7 @@ class fbm:
             ind=np.linspace(0, np.shape(r)[0]-1, 5)            
             for i in ind:
                 plt.plot(r[i,:], zt[i,:], 'k', lw=1.1)
-        CS = ax.contourf(x,y,z, 30, cmap=my_cmap)
+        CS = ax.contourf(x,y,z, 20,  cmap=my_cmap)
         plt.colorbar(CS)
         ax.set_xlabel(xlabel), ax.set_ylabel(ylabel)
         ax.set_title(title)
@@ -1336,7 +1336,9 @@ class fbm_time:
     def plot_Epframes(self):
         """
         """
-        
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)        
         n_cols = 3
         n_rows = self.nslices/3
         if self.nslices%3!=0:
@@ -1347,56 +1349,66 @@ class fbm_time:
             ind_row = i/n_rows
             ind_col = i%n_rows
             CB=axarr[ind_row, ind_col].contourf(self.timeslices[i].dict_dim['pitch'], \
-                    self.timeslices[i].dict_dim['E'], self.timeslices[i].f_space_int, \
+                    self.timeslices[i].dict_dim['E']*1e-3, self.timeslices[i].f_space_int, \
                     20, cmap=my_cmap, vmin=0, vmax=vmax)
             #plt.colorbar(CB)        
             axarr[ind_row, ind_col].set_xlabel(r'$\xi$')
             axarr[ind_row, ind_col].set_ylabel(r'E [keV]')
             axarr[ind_row, ind_col].set_xlim([-1., 1.])
-            axarr[ind_row, ind_col].set_ylim([0, 30000])
+            axarr[ind_row, ind_col].set_ylim([0, 30])
             axarr[ind_row, ind_col].set_title(str(self.timeslices[i].time))
         
         f.tight_layout()
         f.subplots_adjust(right=0.8)
         cbar_ax = f.add_axes([0.85, 0.15, 0.05, 0.7])
         f.colorbar(CB, cax=cbar_ax)        
-        
+        f.text(0.03, 0.02, self.runid)
         plt.show()
 
 
     def plot_spaceframes(self):
         """
         """
-        
-        n_cols = self.nslices
-        n_rows = 1
-
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)
+        n_cols = 4
+        n_rows = self.nslices/n_cols
+        if self.nslices%n_cols!=0:
+            n_rows=n_rows+1
         vmax = np.max([i.f_Ep_int for i in self.timeslices])
         f, axarr = plt.subplots(n_rows, n_cols, sharex=True, sharey=True)
         xlim, ylim = [0.5, 1.2], [-0.8, 0.8]
         f.suptitle(r'Normalized fast ion distribution function', fontsize=16)
         for i in range(self.nslices):
-            ind_col = i
-            CB=axarr[ind_col].contourf(self.timeslices[i].dict_dim['R'], \
+            ind_row = i/n_cols
+            ind_col = i%n_cols
+            CB=axarr[ind_row, ind_col].contourf(self.timeslices[i].dict_dim['R'], \
                     self.timeslices[i].dict_dim['z'], self.timeslices[i].f_Ep_int.T, \
                     20, cmap=my_cmap, vmin=0, vmax=vmax)
-            axarr[ind_col].plot(self.R_w, self.z_w, 'k', lw=3.)
+            axarr[ind_row,ind_col].plot(self.R_w, self.z_w, 'k', lw=3.)
             #plt.colorbar(CB)        
-            axarr[ ind_col].set_xlabel(r'R [m]')
-            axarr[ ind_col].set_ylabel(r'z [m]')
-            axarr[ ind_col].set_xlim(xlim)
-            axarr[ ind_col].set_ylim(ylim)
-            axarr[ ind_col].set_title(str(self.timeslices[i].time))
+            axarr[-1, ind_col].set_xlabel(r'R [m]')
+            axarr[ind_row, 0].set_ylabel(r'z [m]')
+            start, end = axarr[ind_row,0].get_ylim()
+            axarr[ind_row,0].yaxis.set_ticks(np.arange(start, end, 0.4)) 
+            start, end = axarr[-1, ind_col].get_xlim()
+            axarr[-1, ind_col].xaxis.set_ticks(np.arange(start, end, 0.3)) 
+            
+            axarr[ind_row, ind_col].set_xlim(xlim)
+            axarr[ind_row, ind_col].set_ylim(ylim)
+            axarr[ind_row, ind_col].set_title(str(self.timeslices[i].time))
             r, zt = self.timeslices[i].rsurf, self.timeslices[i].zsurf            
             ind=np.linspace(0, np.shape(r)[0]-1, 5)            
             for j in ind:
-                axarr[ind_col].plot(r[j,:], zt[j,:], 'k', lw=1.1)
-        
+                axarr[ind_row,ind_col].plot(r[j,:], zt[j,:], 'k', lw=1.1)
+       
         f.tight_layout()
         f.subplots_adjust(right=0.8)
         cbar_ax = f.add_axes([0.85, 0.15, 0.05, 0.7])
         f.colorbar(CB, cax=cbar_ax)        
         f.subplots_adjust(top=0.88)
+        f.text(0.03, 0.02, self.runid)
         plt.show()
 
 
