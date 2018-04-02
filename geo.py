@@ -24,9 +24,10 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
-
+import netCDF4 as nc
 import ReadEQDSK
 #matplotlib.use("TkAgg")
+import MDSplus as mds
 
 sty = tksty.TKSTY()
 descu  = descur.DESCUR().descur_fit
@@ -86,9 +87,6 @@ class GEO:
         rho: rho gridspec
         theta: theta gridspec
     """
-    timeout = 1e-10
-    tlbl = 'Time'.ljust(20) + 'Seconds'
-
     def __init__(self, indict):
         self._storedict(indict)
         print("\n")
@@ -417,7 +415,34 @@ class GEO:
                          'Z': {'lbl': ilbl, 'arr': np.arange(self.mom_order*(self.mom_type))}},
                 'data': {'lbl': zlbl, 'arr': self.moments_uf}}
         ufiles.WU(uf_d, udir=self.path)            
-            
+
+
+    def store_pressure(self):
+        """
+        Store the u-file of the reconstructured P profile
+        on the toroidal grid
+
+        Parameters
+        ----------
+        None
+        -------
+        None
+        """
+        try:
+            self.pressure.mean()
+        except:
+            self._get_pressure()
+
+        tlbl = 'Time'.ljust(20) + 'Seconds   '
+        rholbl = 'rho_tor'+' '*23
+        lbl = 'P'+' '*20+'[Pa]'.ljust(10)
+        uf_d = {'pre': 'P', 'ext': 'EQ', 'shot': self.shot,
+                'grid': {'X': {'lbl': tlbl, 'arr': self.time_u},
+                         'Y': {'lbl': rholbl, 'arr': self.rho}},
+                'data': {'lbl': lbl, 'arr': self.pressure}}
+        ufiles.WU(uf_d, udir=self.path)
+
+        
     def store_qprof(self):
         """
         Store the u-file of the reconstructured Q profile
@@ -580,12 +605,6 @@ class geo_indict(GEO):
     def _init_indict(self):
         print("DOING GEO INDICT")
         self.dict_flag=1
-        # we have not implemented a function
-        # with a variable number of moments
-        #self.mom_order = self.geodict['Nmom']
-
-        #self.path = os.path.expanduser("~") + \
-        #            '/tr_client/TCV/' + str(self.shot)
         # now open the connection and define the equilibrium
         # open the appropriate equilibrium
         self.eq = eqtools.TCVLIUQETree(self.shot)
@@ -606,8 +625,8 @@ class geo_indict(GEO):
         self._calc_LCFS()
         
         # this is the grid used throughout the class
-        self.R = np.linspace(np.min(self.rc), np.max(self.rc), num=2048)
-        self.Z = np.linspace(np.min(self.zc), np.max(self.zc), num=2048)
+        self.R = np.linspace(np.min(self.rc), np.max(self.rc), num=256)
+        self.Z = np.linspace(np.min(self.zc), np.max(self.zc), num=256)
 
         # this is the time basis and the number of points
         # in time through the class
@@ -623,8 +642,63 @@ class geo_indict(GEO):
         self._coord_change()
         
         #self.plot_input(self.rc, self.zc, 'OUT')
+
+
+    def _get_torflux(self):
+        """
+        Uses eqtools to store the toroidal magnetic flux as function of rho.
+        rho = sqrt((phi-phiaxis)/(phiedge-phiaxis))
+        """        
+        self.phi = np.zeros((self.nt, self.n_rho))
+        tim = self.eq.getTimeBase()
+        phiaxis = self.eq.getFluxAxis()
+        phiedge = self.eq.getFluxLCFS()
+        for it, t in enumerate(self.time_u):
+            i = np.argmin(tim-self.time_u >0)
+            self.phi[it,:] = self.rho**2*(phiedge[i]-phiaxis[i])+phiaxis[i]
+
         
         
+    def _get_pressure(self):
+        """
+        Pressure not yet implemented in eqtools.
+        This routine takes pressure (and pprime) from the tree
+        pressure : \tcv_shot::top.results.thomson.profiles.auto:pe
+        pprime   : eq.getpprime
+        Pprime is needed only for netcdf file to scrunch2
+        """
+        pdict={'string':r'\tcv_shot::top.results.thomson.profiles.auto:pe'}
+
+        # Reading pressure, on tim and rhopol given by thomson
+        self.pressure = np.zeros((self.nt, self.n_rho))
+        tree = mds.Tree('tcv_shot', self.shot)
+        data = tree.getNode(pdict['string']).data()
+        tim  = tree.getNode(pdict['string']).getDimensionAt(0).data()
+        _ind = np.where(np.logical_and(tim >= self.tbeg, tim < self.tend))
+        
+        #reading rhopol (by thomson) and moving to rhotor
+        rhop = tree.getNode(r'\results::thomson.profiles.auto:rho').data()
+        for it, t in enumerate(self.time_u):
+            rhot = self.eq.psinorm2phinorm(rhop, t, sqrt=True)
+            rhot[0]=0.
+            i = np.argmin(t-tim>0)
+            # Interpolate on the desired rho
+            spline_pressure = interpolate.interp1d(rhot,  data[:, i])
+            self.pressure[it,:] = spline_pressure(self.rho)
+
+        self.pprime = np.zeros((self.nt, self.n_rho))
+        pprime = self.eq.getPPrime()
+        tim    = self.eq.getTimeBase()
+        # pprime is defined on rhopol grid with 51 points, so need to interpolate
+        rhopol_pprime = np.linspace(0, 1, np.shape(pprime)[1])
+        for it, t  in enumerate(self.time_u):
+            rhot = self.eq.psinorm2phinorm(rhopol_pprime, t, sqrt=True)
+            rhot[0]=0.
+            i = np.argmin(t-tim>0)
+            # Interpolate on the desired rho
+            spline_pprime = interpolate.interp1d(rhot,  pprime[i, :])
+            self.pprime[it,:] = spline_pprime(self.rho)
+            
     def _mag_axis(self):
         """
         Hidden method to retrieve the position of magnetic axis and interpolate
@@ -772,7 +846,8 @@ class geo_indict(GEO):
         for tshot, itime in zip(self.time_u, range(self.nt)):
             print('TSHOT', tshot)
             # for each time the grid is chosen within the LCFS
-            torFlux_t = self.eq.rz2phinorm(self.R, self.Z, tshot, make_grid=True, sqrt=True)
+            #torFlux_t = self.eq.rz2phinorm(self.R, self.Z, tshot, make_grid=True, sqrt=True)
+            torFlux_t = self.eq.rz2phinorm(self.R, self.Z, tshot, make_grid=True)
             #torFlux = self.coord_change_torflux(torFlux_t)
             torFlux = torFlux_t
             # now we can build the appropriate contour
@@ -815,11 +890,10 @@ class geo_indict(GEO):
             # to moments
             r0mom = np.full(self.mom_order, self.r_axis[itime])
             z0mom = np.full(self.mom_order, self.z_axis[itime])
-            self.moments = np.insert(self.moments, 0, self.r_axis[itime], axis=-2)
-            z0mom = np.full(self.n_rho, self.z_axis[itime])
-            self.moments[0,:,0,2:3] = [z0mom, z0mom]   
-            #self.moments[itime, 0, :, 0] = r0mom
-            #self.moments[itime, 0, :, 2] = z0mom
+            #self.moments = np.insert(self.moments, 0, self.r_axis[itime], axis=-2)
+            #self.moments[0,:,0,2:3] = [z0mom, z0mom]   
+            self.moments[itime, 0, :, 0] = r0mom
+            self.moments[itime, 0, :, 2] = z0mom
             # to r_plot and z_plot
             r0=np.full(self.n_the, self.r_axis[itime])
             z0=np.full(self.n_the, self.z_axis[itime])
@@ -843,9 +917,9 @@ class geo_indict(GEO):
         # the moments are a function of
         # (time, surface label, mom_order, mom_type)
         # R (time, rho, theta) this will be saved in ufile
-        self.r_plot = np.zeros((self.nt, self.n_the))
+        self.r_plot_LCFS = np.zeros((self.nt, self.n_the))
         # Z (time, rho, theta) this will be saved in ufile
-        self.z_plot = np.zeros((self.nt, self.n_the))
+        self.z_plot_LCFS = np.zeros((self.nt, self.n_the))
         for tshot, itime in zip(self.time_u, range(self.nt)):
             print('TSHOT', tshot) 
             if self.tbeg!=self.tend:
@@ -857,7 +931,7 @@ class geo_indict(GEO):
             self.moments[itime, :, 1] = arr[:, 1]
             self.moments[itime, :, 2] = arr[:, 2]
             self.moments[itime, :, 3] = arr[:, 3]
-            self.r_plot[itime, :], self.z_plot[itime, :] = mom2rz.mom2rz(arr[:, 0], arr[:, 1],
+            self.r_plot_LCFS[itime, :], self.z_plot_LCFS[itime, :] = mom2rz.mom2rz(arr[:, 0], arr[:, 1],
                                                                          arr[:, 2], arr[:, 3], 
                                                                          nthe=self.n_the,
                                                                          endpoint = True)
@@ -880,10 +954,12 @@ class geo_indict(GEO):
         # the profile is defined in an equidistant poloidal grid
         # which we need to convert in the appropriate toroidal grid
         _temp_fprof = self.eq.getF()[_indx,:]
+        _temp_ffpprof = self.eq.getFFPrime()[_indx, :]
         #interpolation of f_prof in the right time values
         param_f_time = interpolate.RectBivariateSpline(t[_indx], np.linspace(0,1,_temp_fprof.shape[1]), _temp_fprof)
+        param_ffp_time = interpolate.RectBivariateSpline(t[_indx], np.linspace(0,1,_temp_ffpprof.shape[1]), _temp_ffpprof)
         self._fprof = param_f_time(self.time_u, rhop_value)
-
+        self._ffpprof = param_ffp_time(self.time_u, rhop_value)
         #conversion of rho_pol in rho_tor(rho_pol,time)
         _rho_tor_temp = self.eq.psinorm2phinorm(rhop_value, t[_indx], each_t=True, sqrt=True)
         #interpolation of rho_tor on desired time
@@ -894,22 +970,24 @@ class geo_indict(GEO):
         # now we have the f profile defined on self.time_u and _rho_tor, so we interpolate in order to
         # have it on self.time_u and self.rho
         self.RBT = np.ones(((self.nt), (self.n_rho)))
+        self.FFP = np.ones(((self.nt), (self.n_rho)))
         #slice_rho_tor = np.zeros(self.n_rho)
         slice_f = np.zeros(self.n_rho)
         for i in range(self.nt):
             slice_rhotor = self._rho_tor[i,:]
             slice_f = self._fprof[i,:]
+            slice_ffp = self._ffpprof[i,:]
             #slice_f = slice_f[::-1]
             param_f_rho = interpolate.interp1d(slice_rhotor, slice_f)
             self.RBT[i,1:-1] = param_f_rho(self.rho[1:-1])
-
+            param_ffp_rho = interpolate.interp1d(slice_rhotor, slice_ffp)
+            self.FFP[i, 1:-1] = param_ffp_rho(self.rho[1:-1])
             #now add last point, which couldn't be included before:
-            lastpoint = slice_f[-1]
-            self.RBT[i,-1]=lastpoint
-
+            lastpoint = slice_f[-1]; self.RBT[i,-1]=lastpoint
+            lastpoint = slice_ffp[-1]; self.FFP[i,-1]=lastpoint
             #now add first point
-            firstpoint = slice_f[0]
-            self.RBT[i,0]=firstpoint
+            firstpoint = slice_f[0]; self.RBT[i,0]=firstpoint
+            firstpoint = slice_ffp[1]; self.FFP[i,0]=firstpoint
 
         #self.RBT = self.RBT*1.24
 
@@ -977,9 +1055,8 @@ class geo_indict(GEO):
          
         #self.coord_change_q()
         #self.plot_input(self._qprof, 'Q')
-            
-
-
+ 
+        
 class geo_eqdsk(GEO):
     """
     ====

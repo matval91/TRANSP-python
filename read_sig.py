@@ -200,7 +200,7 @@ class DWR1:
                                                              dat, ext=0)
             self._univec[k] = dict([('spline', dummy)])
             
-        self._read_channels()
+        #self._read_channels()
         # add also the univariate spline interpolation for the NBI
         print("\n")
         print("===================")
@@ -258,16 +258,12 @@ class DWR1:
                                   self._univec[k]['spline'](self.time_u)),
                                  ('time', self.time_u)])
                             
-        for k in self.rsig_channel.keys():
-#                try:
-            self.rsig_channel[k] = dict([
-                    ('data', self._univec_channel[k]['spline'](self.time_u)),\
-                    ('time', self.time_u)
-                    ])
-#                except:
-#                    self.rsig_channel[k][c] = dict([('data',
-#                                     np.zeros(len(self.time_u))),\
-#                                     ('time', self.time_u)])                    
+        # for k in self.rsig_channel.keys():
+        #     self.rsig_channel[k] = dict([
+        #             ('data', self._univec_channel[k]['spline'](self.time_u)),\
+        #             ('time', self.time_u)
+        #             ])  
+            
 
 
     def set_zeff(self):
@@ -693,7 +689,7 @@ class DWR2:
         
     def _getBivecSpline(self):
         """
-        Hidden method for reading the signal storing their bivacspline
+       Hidden method for reading the signal storing their bivacspline
         representation on a grid (time, rho_tor)
         """
         # Each of the signals is returned in a rho poloidal grid
