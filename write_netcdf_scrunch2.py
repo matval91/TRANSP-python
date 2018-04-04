@@ -2,10 +2,11 @@ import numpy as np
 import os
 import netCDF4 as nc
 
-def write_netcdf_scrunch2(geo_struct, sig_struct):
+
+def write_netcdf_scrunch2(g):
         """
         Writing file movie.cdf, as suggested by M. Gorelenkova on 3/30/18, to give to scrunch for reconstruction.
-        Just needs the toroidal flux, not the moments.
+        Needs everything since it is recomputing the equilibrium with better tolerances
 
         allocate(xary(inx),zary(inz),psirz(inx,inz,intimes),psi_efit(inx))
         allocate(times(intimes),gzero(intimes),xplas(intimes),apl(intimes))
@@ -43,33 +44,44 @@ def write_netcdf_scrunch2(geo_struct, sig_struct):
             print("Removing old movie.cdf")
             os.remove('movie.cdf')
 
+        ###===========================
+        # Getting data
+        ###===========================
         
-        geo_struct._calc_RBtor();  geo_struct._calc_qprof()
-        geo_struct._get_pressure(); geo_struct._get_torflux(); geo_struct.mag_axis()
-        torFlux = geo_struct.eq.rz2phinorm(geo_struct.R, geo_struct.Z, geo_struct.time_u, make_grid=True)
-        torFlux[np.isnan(torFlux)] = 1.
+        g._calc_RBtor();  g._calc_qprof()
+        g._get_pressure(); g._get_torflux(); g.mag_axis()
+        g._eqflux_LCFS()
+        R_wall = [0.6, 1.16]
+        z_wall = [-0.77, 0.77]
+        #R = np.linspace(np.min(g.r_plot_LCFS), np.max(g.r_plot_LCFS), 256)
+        #Z = np.linspace(np.min(g.z_plot_LCFS), np.max(g.z_plot_LCFS), 256)
+        tim = g.eq.getTimeBase()
+        ind_t = np.argmin(tim-1.<0.)
+        torFlux = g.eq.getFluxGrid()[ind_t,:,:]
+        torFlux = np.expand_dims(torFlux, axis=0)
         torFlux = np.transpose(torFlux, (1,2,0)) #put it in shape (nR, nZ, time)
+        R  = np.linspace(R_wall[0], R_wall[1], np.shape(torFlux)[1])
+        Z  = np.linspace(z_wall[0], z_wall[1], np.shape(torFlux)[0])
 
-        sig_struct._read_1d()
-        
-        
-        f = nc.Dataset('movie.cdf','w', format='NETCDF4_CLASSIC')
-
+        ###===========================
+        # writing data to netcdf
+        ###===========================        
+        f = nc.Dataset('movie.cdf','w', format='NETCDF3_CLASSIC')
         # time variables
-        t = f.createDimension('t', geo_struct.nt)
-        dummy = np.zeros(geo_struct.nt)
+        t = f.createDimension('t', g.nt)
+        dummy = np.zeros(g.nt)
         times = f.createVariable('times', np.float, ('t',))
         gzero = f.createVariable('gzero', np.float, ('t',))
         xplas = f.createVariable('xplas', np.float, ('t',))
         apl   = f.createVariable('apl',   np.float, ('t',))
-        times[:] = geo_struct.time_u
-        gzero[:] = geo_struct.RBT[:, 0]
-        xplas[:] = geo_struct.r_axis
-        apl[:] = sig_struct._univec['IP']['spline'](sig_struct.time_u)
+        times[:] = g.time_u
+        gzero[:] = g.RBT[:, 0]
+        xplas[:] = g.r_axis*100.
+        apl[:] = g.eq.getIpMeas()[ind_t]
 
-        # psi variables (dummy)
+        # psi variables 
         psi = f.createDimension('psi', 41)
-        dummyarr = np.full((41, geo_struct.nt), 1., dtype=float)
+        dummyarr = np.full((41, g.nt), 1., dtype=float)
         te2     = f.createVariable('te2'    , np.float, ('psi', 'psi',))
         xsv2    = f.createVariable('xsv2'   , np.float, ('t', 'psi',))
         gary    = f.createVariable('gary'   , np.float, ('t', 'psi',))
@@ -77,29 +89,28 @@ def write_netcdf_scrunch2(geo_struct, sig_struct):
         ggprime = f.createVariable('ggprime', np.float, ('t', 'psi',))
         pres    = f.createVariable('pres'   , np.float, ('t', 'psi',))
         presp   = f.createVariable('presp'  , np.float, ('t', 'psi',))
-        xsv2[:] = geo_struct.phi
-        gary[:]    = geo_struct.RBT
-        qprof2[:]  = geo_struct.qprof
-        ggprime[:] = geo_struct.FFP
-        pres[:] = geo_struct.pressure
-        presp[:] = geo_struct.pprime
+        xsv2[:] = g.phi
+        gary[:]    = g.RBT*100.
+        qprof2[:]  = g.qprof
+        ggprime[:] = g.FFP*100.*100.
+        pres[:] = g.pressure
+        presp[:] = g.pprime
         
         # nR, nZ
-        R = f.createDimension('R', len(geo_struct.R))
-        Z = f.createDimension('Z', len(geo_struct.Z))
+        Rnc = f.createDimension('R', len(R))
+        Znc = f.createDimension('Z', len(Z))
         xary = f.createVariable('xary', np.float, ('R',))
         zary = f.createVariable('zary', np.float, ('Z',))
-        psi  = f.createVariable('psi' , np.float, ('t','R','Z',))
-        xary[:] = geo_struct.R; zary[:]=geo_struct.Z
+        psi  = f.createVariable('psi' , np.float, ('t','Z','R',))
+        xary[:] = R*100.; zary[:]=Z*100.
         psi[:] = torFlux
 
         # theta, times
-        theta = f.createDimension('theta', geo_struct.n_the)
+        theta = f.createDimension('theta', g.n_the)
         rlcfs = f.createVariable('rbnd', np.float, ('t', 'theta',))
         zlcfs = f.createVariable('zbnd', np.float, ('t', 'theta',))
-        geo_struct._eqflux_LCFS()
-        rlcfs[:] = np.transpose(geo_struct.r_plot_LCFS)
-        zlcfs[:] = np.transpose(geo_struct.z_plot_LCFS)
+        rlcfs[:] = np.transpose(g.r_plot_LCFS*100.)
+        zlcfs[:] = np.transpose(g.z_plot_LCFS*100.)
 
         #close cdf file
         f.close()
