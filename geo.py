@@ -25,7 +25,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import NavigationToolbar2TkAgg
 import netCDF4 as nc
-import ReadEQDSK
+import ReadEQDSK_py2
 #matplotlib.use("TkAgg")
 import MDSplus as mds
 
@@ -105,29 +105,6 @@ class GEO:
         self.path = indict['path']
         self.mom_type = 4
         self.mom_order = 8
-        
-    def sepx(self):
-
-        """ 
-        It just gives back the representation of the separatrix
-        from the previously calculated moment representation of the
-        toroidal flux. Actually the (r,z)
-        """
-
-        # check if the r_plot and z_plot has not been inizialied otherwise
-        # it calls the appropriate method
-        try:
-            self.moments.mean()
-        except:
-            self._eqflux()
-
-
-        # TRICK TO PUT THE PLASMA TO 0
-        #self.z_plot = self.z_plot - self.z_axis
-        r_sp = self.r_plot[:, -1, :]
-        z_sp = self.z_plot[:, -1, :]
-        return r_sp, z_sp
-
 
     def mag_axis(self):
         """
@@ -161,7 +138,7 @@ class GEO:
         print("Done RZ equilibrium")
         #return self.r_plot, self.z_plot
 
-    def calc_qprof(self):
+    def fetch_qprof(self):
         """
         Return the Q profile on the toroidal grid as
         a function of time and rhotor
@@ -170,14 +147,14 @@ class GEO:
         try:
             self.qprof.mean()
         except:
-            self._calc_qprof()
+            self._fetch_qprof()
                 
         
-        self.plot_input(self.qprof,'Q')
+        #self.plot_input(self.qprof,'Q')
         print("Evaluated Q profile")
         #return self.qprof
 
-    def calc_RBtor(self):
+    def fetch_RBtor(self):
         """
         returns RBtor
         Method to compute R.Btor in as profile of (t,rho_tor)
@@ -186,131 +163,10 @@ class GEO:
         try:
             self.RBT.mean()
         except:
-            self._calc_RBtor()
+            self._fetch_RBtor()
 
-        self.plot_input(self.RBT,'F')
+        #self.plot_input(self.RBT,'F')
         print("Evaluated F profile")
-
-    def coord_change_torflux(self, torflux_in):
-        """
-        Applying formula
-        phi(cocos_OUT) = sigma_b0*phi(cocos_IN)                        [TOROIDAL FLUX] 
-        """
-        try:
-            self.sigma_ip+1
-        except:
-            self._coord_change()
-        
-        torflux_out = np.multiply(self.sigma_b0,torflux_in)
-        return torflux_out
-    
-    def coord_change_F(self):
-        """
-        Applying formula 
-        F  (cocos_OUT) = sigma_b0*F(cocos_IN)
-        """     
-        try:
-            self.sigma_ip+1
-        except:
-            self._coord_change()
-        tmp = np.multiply(self.RBT,self.sigma_b0)
-        self.RBT = tmp
-
-    def coord_change_q(self):
-        """
-        Applying formula 
-        q  (cocos_OUT) = sigma_ip*sigma_b0*sigma_rtp*q(cocos_IN)
-        """
-        try:
-            self.sigma_ip+1
-        except:
-            self._coord_change()
-        fact = self.sigma_ip*self.sigma_b0*self.sigma_rtp
-        tmp=np.multiply(fact, self.qprof)
-        self.qprof = tmp
-
-
-        
-    def _coord_change(self):
-        """
-        Function to convert the COCOS
-        LIUQE is in COCOS 17 while EFIT in COCOS 3
-        i=COCOS 17, o=COCOS 3
-
-        These formula come from appendix C of COCOS article
-        psi(cocos_OUT) = sigma_ip*sigma_bp*(2pi)^(e_bp)*psi(cocos_IN)  [POLOIDAL FLUX]
-        
-        phi(cocos_OUT) = sigma_b0*phi(cocos_IN)                        [TOROIDAL FLUX]
-        F  (cocos_OUT) = sigma_b0*F(cocos_IN)
-        q  (cocos_OUT) = sigma_ip*sigma_b0*sigma_rtp*q(cocos_IN)
-        """
-        ############################################
-        # FROM COCOS article, table 1
-        e_bp_i = 1
-        e_bp_o = 0
-        self.e_bp = e_bp_o-e_bp_i
-
-        sigma_bp_i = -1
-        sigma_bp_o = -1
-        self.sigma_bp = sigma_bp_i*sigma_bp_o
-
-        #this is sigma R,phi,z: cylind
-        sigma_rpz_i = +1
-        sigma_rpz_o = +1
-        self.sigma_rpz = sigma_rpz_i*sigma_rpz_o
-        
-        #this is sigma rho,theta,phi: poloid
-        sigma_rtp_i = +1
-        sigma_rtp_o = -1
-        self.sigma_rtp = sigma_rtp_i*sigma_rtp_o
-        ############################################
-
-        ############################################
-        # FROM APPENDIX C
-        # a specific sign of Ip and Bp is not requested
-        #self.sigma_ip = self.sigma_rpz
-        #self.sigma_b0 = self.sigma_rpz
-        
-        ############################################
-
-        ############################################
-        # FROM APPENDIX C
-        # a specific sign of Ip and Bp is requested (q and F must be >0)
-        sign_ip_i = -1 # for shot 53778
-        sign_ip_o = 1
-        self.sigma_ip = sign_ip_i*sign_ip_o
-
-        sign_b0_i = -1 #for shot 53778
-        sign_b0_o = 1
-        self.sigma_b0 = sign_b0_i*sign_b0_o
-        
-        ############################################
-    
-#    def store_sep_moments(self):
-#        """
-#        Store as u-file the appropriate moments definition of the
-#        toroidal flux for the separatrix
-#        """
-#        try:
-#            self.moments.mean()
-#        except:
-#            self._eqflux()
-#
-#        karr = 1 + np.arange(self.mom_type)
-#        marr = 1 + np.arange(self.mom_order)
-#        darr = self.moments[:, -1,  :, :]
-#
-#        klbl = 'MOMENT TYPE'
-#        mlbl = 'MOMENT INDEX'
-#        dlbl = 'FOURIER MOMENTS'.ljust(20) + 'M'
-#
-#        uf_d = {'pre': 'M', 'ext': 'MRY', 'shot': self.shot,
-#                'grid': {'X': {'lbl': self.tlbl, 'arr': self.time_u},
-#                         'Y': {'lbl': mlbl, 'arr': marr},
-#                         'Z': {'lbl': klbl, 'arr': karr}},
-#                'data': {'lbl': dlbl, 'arr': darr}}
-#        ufiles.WU(uf_d, udir=self.path)
-
 
     def store_u(self):
         """
@@ -586,8 +442,8 @@ class geo_indict(GEO):
     _mag_axis: calculates position of axis
     _calc_LCFS: calculates the LCFS position
     _eqflux: calculates magnetic surfaces position
-    _calc_RBtor: calculates and returns poloidal flux on appropriate grid
-    _calc_qprof: calculates and returns safety factor profile on appropriate grid
+    _fetch_RBtor: calculates and returns poloidal flux on appropriate grid
+    _fetch_qprof: calculates and returns safety factor profile on appropriate grid
 
     Attributes:
     ---------------
@@ -608,57 +464,90 @@ class geo_indict(GEO):
         # now open the connection and define the equilibrium
         # open the appropriate equilibrium
         self.eq = eqtools.TCVLIUQETree(self.shot)
-        # we have a series of things which are common
-        # as the time basis and the appropriate grid
-        t = self.eq.getTimeBase()
-        _ind = ((t >= self.tbeg) & (t < self.tend))
-        if len(np.where(_ind==True))<=3:
-            _ind = ((t >= self.tbeg-0.05) & (t < self.tend+0.05))
-            
-        if self.tbeg==self.tend:
-            t_req = np.array([self.tbeg])
-        else:
-            t_req = np.arange(self.tbeg, self.tend + self.dt, self.dt)
+        
+        # finding timebase of eqtools and shared indexes with
+        # the indict
+        _teq = self.eq.getTimeBase()
+        self._tind = ((_teq >= self.tbeg) & (_teq < self.tend))
+        if np.logical_or(len(self._tind)==0, self.tbeg==self.tend):
+            self._tind = np.argmin(_teq-self.tbeg<=0.)
+        self._teq = _teq[self._tind]
 
-        self.time_u = t_req
+        # this is the time basis and the number of points
+        # in time through the class
+        if self.tbeg==self.tend:
+            self.time_u = np.array([self.tbeg])
+        else:
+            self.time_u = np.arange(self.tbeg, self.tend + self.dt, self.dt)
+
+        self.nt = self.time_u.size
 
         self._calc_LCFS()
         
         # this is the grid used throughout the class
-        self.R = np.linspace(np.min(self.rc), np.max(self.rc), num=256)
-        self.Z = np.linspace(np.min(self.zc), np.max(self.zc), num=256)
+        self.R = np.linspace(np.min(self.rc), np.max(self.rc), num=1024)
+        self.Z = np.linspace(np.min(self.zc), np.max(self.zc), num=1024)
 
-        # this is the time basis and the number of points
-        # in time through the class
-        self.nt = self.time_u.size
-        self.rz_grid = self.R, self.Z
         # this is the rho and theta definition throught the class
         self.rho = np.linspace(0, 1, num=self.n_rho)
         self.theta = np.linspace(0, 2*np.pi, self.n_the, endpoint=False)
 
 
-        #==========================================
-        # initialising COCOS conversion factors
-        self._coord_change()
+    def _calc_LCFS(self):
+        """
+        Function to compute the LCFS and thus the RZ limits
+        read the information on equilibrium from LIUQE. We use directly
+        the saved r and z contour of the LCFS already limited
         
-        #self.plot_input(self.rc, self.zc, 'OUT')
+        """
+        _rc = self.eq.getRLCFS()[self._tind, :]
+        _zc = self.eq.getZLCFS()[self._tind, :]
+        if np.size(self._tind) ==1:
+            _rc = np.expand_dims(_rc, axis=0)
+            _zc = np.expand_dims(_zc, axis=0)
 
+        _rc = _rc[:,~np.isnan(_rc).any(0)] #REMOVES NANs
+        _zc = _zc[:,~np.isnan(_zc).any(0)] #REMOVES NANs
 
+        #Check if needs fitting on self.time_u
+        if self.tbeg!=self.tend: 
+            num_LCFS = _rc.shape[1] #number of points in the eqtools LCFS
+            x_numLCFS = range(num_LCFS)
+
+            param_rc = interpolate.RectBivariateSpline(self._teq, x_numLCFS , _rc)
+            self.rc = param_rc(self.time_u, x_numLCFS)
+
+            param_zc = interpolate.RectBivariateSpline(self._teq, x_numLCFS , _zc)
+            self.zc = param_zc(self.time_u, x_numLCFS)
+        else:
+            self.rc = _rc
+            self.zc = _zc
+
+    def _mag_axis(self):
+        """
+        Hidden method to retrieve the position of magnetic axis and interpolate
+        it in the requested time samples
+        
+        """
+        _tmp_r_axis = self.eq.getMagR()[self._tind]
+        param_raxis = interpolate.interp1d(self._teq,  _tmp_r_axis)
+        self.r_axis = param_raxis(self.time_u)
+
+        _tmp_z_axis = self.eq.getMagZ()[self._tind]
+        param_zaxis = interpolate.interp1d(self._teq,  _tmp_z_axis)
+        self.z_axis = param_zaxis(self.time_u) 
+        
     def _get_torflux(self):
         """
         Uses eqtools to store the toroidal magnetic flux as function of rho.
         rho = sqrt((phi-phiaxis)/(phiedge-phiaxis))
         """        
         self.phi = np.zeros((self.nt, self.n_rho))
-        tim = self.eq.getTimeBase()
-        phiaxis = self.eq.getFluxAxis()
-        phiedge = self.eq.getFluxLCFS()
-        for it, t in enumerate(self.time_u):
-            i = np.argmin(tim-self.time_u >0)
-            self.phi[it,:] = self.rho**2*(phiedge[i]-phiaxis[i])+phiaxis[i]
+        phiaxis = self.eq.getFluxAxis()[self._tind]
+        phiedge = self.eq.getFluxLCFS()[self._tind]
 
-        
-        
+        self.phi[it,:] = self.rho**2*(phiedge[i]-phiaxis[i])+phiaxis[i]
+
     def _get_pressure(self):
         """
         Pressure not yet implemented in eqtools.
@@ -699,123 +588,6 @@ class geo_indict(GEO):
             spline_pprime = interpolate.interp1d(rhot,  pprime[i, :])
             self.pprime[it,:] = spline_pprime(self.rho)
             
-    def _mag_axis(self):
-        """
-        Hidden method to retrieve the position of magnetic axis and interpolate
-        it in the requested time samples
-        """
-        t = self.eq.getTimeBase()
-        _ind = ((t >= self.tbeg-5*self.dt) & (t < self.tend+5*self.dt))
-
-        _tmp_r_axis = self.eq.getMagR()[_ind]
-        param_raxis = interpolate.interp1d(t[_ind],  _tmp_r_axis)
-        self.r_axis = param_raxis(self.time_u)
-
-        _tmp_z_axis = self.eq.getMagZ()[_ind]
-        param_zaxis = interpolate.interp1d(t[_ind],  _tmp_z_axis)
-        self.z_axis = param_zaxis(self.time_u)    
-
-
-    def _calc_LCFS(self):
-        """
-        Function to compute the LCFS and thus the RZ limits
-        read the information on equilibrium from LIUQE. We use directly
-        the saved r and z contour of the LCFS already limited
-        
-        """
-        t = self.eq.getTimeBase()
-        _ind = ((t >= self.tbeg) & (t < self.tend))
-        if len(np.where(_ind==True))<=4:
-            _ind = ((t >= self.tbeg-0.1) & (t < self.tend+0.1))
-            
-        _rc = self.eq.getRLCFS()[_ind, :]
-        _rc = _rc[:,~np.isnan(_rc).any(0)] #REMOVES NANs
-        num_LCFS = _rc.shape[1]
-        x_numLCFS = range(num_LCFS)
-        #if self.tbeg!=self.tend:
-        param_rc = interpolate.RectBivariateSpline(t[_ind], x_numLCFS , _rc)
-        self.param_rc = param_rc
-        self.rc = param_rc(self.time_u, x_numLCFS)
-        #else:
-        #    self.rc = _rc
-
-        _zc = self.eq.getZLCFS()[_ind, :]
-        _zc = _zc[:,~np.isnan(_zc).any(0)] #REMOVES NANs
-        #if self.tbeg!=self.tend:
-        param_zc = interpolate.RectBivariateSpline(t[_ind], x_numLCFS , _zc)
-        self.param_zc = param_zc
-        self.zc = param_zc(self.time_u, x_numLCFS)
-        #else:
-        #    self.zc=_zc
-        #=========================================
-        if self.tbeg == self.tend:
-            self.rc = self.rc[0,:]
-            self.zc = self.zc[0,:]
-
-
-        
-#    def _calc_psi_deriv(self):
-#        """
-#        Compute the derivative of the poloidal flux on a refined grid which
-#        will be used then for computing of the radial and vertical component of
-#        the magnetic field.
-#        It can be done by computing on a finer grid (128x128)
-#        within the separatrix
-#        for each time
- #       """
- #       self.dpsidR = np.zeros((self.nt, self.R.size, self.Z.size))
- #       self.dpsidZ = np.zeros((self.nt, self.R.size, self.Z.size))
- #       for time, itime in zip(self.time_u, range(self.nt)):
- #           #psiN = self.eq.rz2psi(self.R, self.Z, time, make_grid=True)
- #           psiN = self.eq.rz2psi(self.R, self.Z, time, make_grid=True)
- #           #psiN = self.coord_change_psi(psiN_t)
-#            deriv = np.gradient(psiN)
-#            # Note np.gradient gives y
-#            # derivative first, then x derivative
- #           ddR = deriv[1]
-#            # ddR = self.psi(Rgrid,Zgrid,dx=1)
-#            ddZ = deriv[0]
-#            # ddZ = self.psi(Rgrid,Zgrid,dy=1)
-#            dRdi = 1.0/np.gradient(self.R)
-#            dZdi = 1.0/np.gradient(self.Z)
-#            self.dpsidR[itime, :, :] = ddR*dRdi[np.newaxis, :]
-#            self.dpsidZ[itime, :, :] = ddZ*dZdi[:, np.newaxis]
-
-#    def calc_bfield(self):
-#        """
-#        Calculate the radial and vertical component of the
-#        poloidal magnetic field in a prescribed grid
-#        These are the variables BRRZ and BZRZ of the plasma_state
-#
-#        """
-#        self._calc_psi_deriv()
-#        self.BRRZ = -1.0*self.dpsidZ/self.R[np.newaxis, :]
-#        self.BZRZ = self.dpsidR/self.R[np.newaxis, :]
-#        return self.BRRZ, self.BZRZ
-
-        
-#    def calc_area(self):
-#        """
-#        Calculate the area of the surface embedded in toroidal
-#        iso-flux surfaces. It use the approximate r_plot, z_plot
-#        from the computation of eqflux so that we are sure the points are
-#        continous
-#
-#        """
-#        try:
-#            self.moments.mean()
-#        except:
-#            self._eqflux()
-#
-#        self.area = np.zeros((self.nt, self.n_rho))
-#        for itime in range(self.nt):
-#            for jrho in range(self.n_rho):
-#                _dummy = greenArea(self.r_plot[itime, jrho, :],
-#                                   self.z_plot[itime, jrho, :])
-#                self.area[itime, jrho] = np.abs(_dummy)
-#        return self.area
-
-
     def _eqflux(self):
         """
         It compute the appropriate toroidal flux in R, Z and the appropriate
@@ -830,26 +602,23 @@ class geo_indict(GEO):
         except:
             self._mag_axis()
 
-        # ok now we can compute the appropriate momentum
-        # we need on a rhotor grid
+        # the moments are a function of
+        # (time, surface label, mom_order, mom_type)            
         self.moments = np.zeros((self.nt, self.n_rho,
                                  self.mom_order, self.mom_type))
-        # the moments are a function of
-        # (time, surface label, mom_order, mom_type)
+
         # R (time, rho, theta) this will be saved in ufile
         self.r_plot = np.zeros((self.nt, self.n_rho, self.n_the))
         # Z (time, rho, theta) this will be saved in ufile
         self.z_plot = np.zeros((self.nt, self.n_rho, self.n_the))
-        self.cont = np.zeros((self.nt))
-        self.tempz = np.zeros((self.nt,self.n_rho))
-        # now we have to iterate on the time and
+        
+        # now we have to iterate on time 
         for tshot, itime in zip(self.time_u, range(self.nt)):
             print('TSHOT', tshot)
             # for each time the grid is chosen within the LCFS
-            #torFlux_t = self.eq.rz2phinorm(self.R, self.Z, tshot, make_grid=True, sqrt=True)
-            torFlux_t = self.eq.rz2phinorm(self.R, self.Z, tshot, make_grid=True)
+            torFlux = self.eq.rz2phinorm(self.R, self.Z, tshot, make_grid=True, sqrt=True)
             #torFlux = self.coord_change_torflux(torFlux_t)
-            torFlux = torFlux_t
+
             # now we can build the appropriate contour
             rcont = contourc.contourc(self.R, self.Z, torFlux, self.n_rho)
             # we limit to the point in rho<1 afterwards we will add the
@@ -911,11 +680,9 @@ class geo_indict(GEO):
         and then loop for the appropriate momenta.
         In this way we have appropriate values
         """
-        # ok now we can compute the appropriate momentum
-        # we need on a rhotor grid
-        self.moments = np.zeros((self.nt, self.mom_order, self.mom_type))
         # the moments are a function of
         # (time, surface label, mom_order, mom_type)
+        self.moments = np.zeros((self.nt, self.mom_order, self.mom_type))
         # R (time, rho, theta) this will be saved in ufile
         self.r_plot_LCFS = np.zeros((self.nt, self.n_the))
         # Z (time, rho, theta) this will be saved in ufile
@@ -926,6 +693,7 @@ class geo_indict(GEO):
                 xd, yd = self.rc[itime,: ], self.zc[itime,: ]
             else:
                 xd, yd = self.rc, self.zc
+
             arr = descu(xd[~np.isnan(xd)],yd[~np.isnan(xd)], self.mom_order)
             self.moments[itime, :, 0] = arr[:, 0]
             self.moments[itime, :, 1] = arr[:, 1]
@@ -936,38 +704,47 @@ class geo_indict(GEO):
                                                                          nthe=self.n_the,
                                                                          endpoint = True)
 
-	#self.plot_input(self.r_plot[:,:], self.z_plot[:,:], 'RZ LCFS after moments')
-               
-    def _calc_RBtor(self):
+              
+    def _fetch_RBtor(self):
         """
         Hidden method to compute the Fprofile on the appropriate rho-toroidal
         grid 
 
         """
-        # load the q values as saved in the MDSplus Tree
-        t = self.eq.getTimeBase()
         # define a fake rhop
-        rhop_value = np.linspace(0, 1, num=51, dtype='float')
-        
-        _indx = ((t >= self.tbeg-5*self.dt) & (t < self.tend+5*self.dt))
+        psiFake = np.linspace(0, 1, num=51, dtype='float')      
 
         # the profile is defined in an equidistant poloidal grid
         # which we need to convert in the appropriate toroidal grid
-        _temp_fprof = self.eq.getF()[_indx,:]
-        _temp_ffpprof = self.eq.getFFPrime()[_indx, :]
-        #interpolation of f_prof in the right time values
-        param_f_time = interpolate.RectBivariateSpline(t[_indx], np.linspace(0,1,_temp_fprof.shape[1]), _temp_fprof)
-        param_ffp_time = interpolate.RectBivariateSpline(t[_indx], np.linspace(0,1,_temp_ffpprof.shape[1]), _temp_ffpprof)
-        self._fprof = param_f_time(self.time_u, rhop_value)
-        self._ffpprof = param_ffp_time(self.time_u, rhop_value)
-        #conversion of rho_pol in rho_tor(rho_pol,time)
-        _rho_tor_temp = self.eq.psinorm2phinorm(rhop_value, t[_indx], each_t=True, sqrt=True)
-        #interpolation of rho_tor on desired time
-        param_rhotor_time = interpolate.RectBivariateSpline(t[_indx], rhop_value, _rho_tor_temp)
-        self._rho_tor = param_rhotor_time(self.time_u, rhop_value)
+        _temp_fprof = self.eq.getF()[self._tind,:]
+        _temp_ffpprof = self.eq.getFFPrime()[self._tind, :]
+        if np.size(self._tind)==1:
+            param_f = interpolate.interp1d(np.linspace(0,1,np.size(_temp_fprof)), _temp_fprof)
+            self._fprof = param_f(psiFake); self._fprof = np.expand_dims(self._fprof, axis=0)
+            param_ffp = interpolate.interp1d(np.linspace(0,1,np.size(_temp_ffpprof)), _temp_ffpprof)
+            self._ffpprof = param_ffp(psiFake); self._ffpprof = np.expand_dims(self._ffpprof, axis=0)
+        else:    
+            #interpolation of f_prof in the right time values
+            param_f_time = interpolate.RectBivariateSpline(self._teq, np.linspace(0,1,_temp_fprof.shape[1]), _temp_fprof)
+            param_ffp_time = interpolate.RectBivariateSpline(self._teq, np.linspace(0,1,_temp_ffpprof.shape[1]), _temp_ffpprof)
+            self._fprof = param_f_time(self.time_u, psiFake)
+            self._ffpprof = param_ffp_time(self.time_u, psiFake)
+
+        try:
+            self._rho_tor.mean()
+        except:
+            #conversion of rho_pol in rho_tor
+            #psinorm2phinorm gets the FLUX, not rho (from docs), but if sqrt=True returns rho
+            _rho_tor_temp = self.eq.psinorm2phinorm(psiFake, self._teq, each_t=True, sqrt=True)
+            #interpolation of rho_tor on desired time
+            if np.size(self._tind)==1:
+                self._rho_tor = np.expand_dims(_rho_tor_temp, axis=0)
+            else:
+                param_rhotor_time = interpolate.RectBivariateSpline(self._teq, psiFake, _rho_tor_temp)
+                self._rho_tor = param_rhotor_time(self.time_u, psiFake)
         
 
-        # now we have the f profile defined on self.time_u and _rho_tor, so we interpolate in order to
+        # now we have the f and ffprime profile defined on self.time_u and _rho_tor, so we interpolate in order to
         # have it on self.time_u and self.rho
         self.RBT = np.ones(((self.nt), (self.n_rho)))
         self.FFP = np.ones(((self.nt), (self.n_rho)))
@@ -977,69 +754,60 @@ class geo_indict(GEO):
             slice_rhotor = self._rho_tor[i,:]
             slice_f = self._fprof[i,:]
             slice_ffp = self._ffpprof[i,:]
-            #slice_f = slice_f[::-1]
+            
             param_f_rho = interpolate.interp1d(slice_rhotor, slice_f)
             self.RBT[i,1:-1] = param_f_rho(self.rho[1:-1])
             param_ffp_rho = interpolate.interp1d(slice_rhotor, slice_ffp)
             self.FFP[i, 1:-1] = param_ffp_rho(self.rho[1:-1])
+
             #now add last point, which couldn't be included before:
             lastpoint = slice_f[-1]; self.RBT[i,-1]=lastpoint
             lastpoint = slice_ffp[-1]; self.FFP[i,-1]=lastpoint
+
             #now add first point
             firstpoint = slice_f[0]; self.RBT[i,0]=firstpoint
             firstpoint = slice_ffp[1]; self.FFP[i,0]=firstpoint
+       
 
-        #self.RBT = self.RBT*1.24
-
-        #self.RBT = np.linspace(1.25, 1.26, self.n_rho)
-        #self.RBT = self.RBT[np.newaxis,:]
-        #print('SORTING')
-        #for i in range(self.nt):
-        #    self.RBT[i,:] = np.sort(self.RBT[i,:])
-
-        #self.coord_change_F()
-
-        self.RBT = np.absolute(self.RBT)
-        
-
-        
-
-    def _calc_qprof(self):
+    def _fetch_qprof(self):
         """
-        Hidden method to compute the qprofile on the appropriate rho-toroidal
+        Hidden method to fetch the qprofile on the appropriate rho-toroidal
         grid 
         the q got from eqtools is defined on PSIGRID
 
         """
-        # load the q values as saved in the MDSplus Tree
-        t = self.eq.getTimeBase()
         # define a fake psigrid
-        psiFake = np.linspace(0, 1, num=51)
-        _indx = ((t >= self.tbeg-5*self.dt) & (t < self.tend+5*self.dt))
+        psiFake = np.linspace(0, 1, num=51, dtype='float')
 
         # the profile is defined POLOIDAL FLUX GRID
         # which we need to convert in the appropriate toroidal grid
-        _temp_qprof = self.eq.getQProfile()[_indx, :]
-        #interpolation of q_prof in the right time values
-        param_q_time = interpolate.RectBivariateSpline(t[_indx], np.linspace(0,1,_temp_qprof.shape[1]), _temp_qprof)
-        _qprof = param_q_time(self.time_u, psiFake)
-
-        #conversion of rho_pol in rho_tor
-        psiFake = np.linspace(0, 1, num=51, dtype='float')
-        #psinorm2phinorm gets the FLUX, not rho (from docs), but if sqrt=True returns rho
-        _rho_tor_temp = self.eq.psinorm2phinorm(psiFake, t[_indx], each_t=True, sqrt=True)
-        #interpolation of rho_tor on desired time
-        param_rhotor_time = interpolate.RectBivariateSpline(t[_indx], psiFake, _rho_tor_temp)
-        _rho_tor = param_rhotor_time(self.time_u, psiFake)
-
-#        plt.plot(_rho_tor[0,:], _qprof[0,:])
-        
+        _temp_qprof = self.eq.getQProfile()[self._tind, :]
+        if np.size(self._tind)==1:
+            param_q = interpolate.interp1d(np.linspace(0,1,np.size(_temp_qprof)), _temp_qprof)
+            _qprof = param_q(psiFake); _qprof = np.expand_dims(_qprof, axis=0)
+        else:
+            #interpolation of q_prof in the right time values
+            param_q_time = interpolate.RectBivariateSpline(self._teq, np.linspace(0,1,_temp_qprof.shape[1]), _temp_qprof)
+            _qprof = param_q_time(self.time_u, psiFake)
+        try:
+            self._rho_tor.mean()
+        except:
+            #conversion of rho_pol in rho_tor
+            #psinorm2phinorm gets the FLUX, not rho (from docs), but if sqrt=True returns rho
+            _rho_tor_temp = self.eq.psinorm2phinorm(psiFake, self._teq, each_t=True, sqrt=True)
+            #interpolation of rho_tor on desired time
+            if np.size(self._tind)==1:
+                self._rho_tor = np.expand_dims(rho_tor_temp, axis=0)
+            else:
+                param_rhotor_time = interpolate.RectBivariateSpline(self._teq, psiFake, _rho_tor_temp)
+                self._rho_tor = param_rhotor_time(self.time_u, psiFake)
+       
         # now we have the q profile defined on self.time_u and _rho_tor, so we interpolate in order to
         # have it on self.time_u and self.rho
         self.qprof = np.zeros(((self.nt), (self.n_rho)))
         slice_q = np.zeros(np.size(psiFake))
         for i in range(self.nt):
-            slice_rhotor = _rho_tor[i,:]
+            slice_rhotor = self._rho_tor[i,:]
             slice_q = _qprof[i,:]
             param_q_rho = interpolate.interp1d(slice_rhotor, slice_q)
             self.qprof[i,1:-1] = param_q_rho(self.rho[1:-1])
@@ -1052,13 +820,11 @@ class geo_indict(GEO):
             firstpoint = slice_q[1]
             self.qprof[i,0]=firstpoint
 
-         
-        #self.coord_change_q()
-        #self.plot_input(self._qprof, 'Q')
- 
         
 class geo_eqdsk(GEO):
     """
+    THIS CLASS IS STILL UNDER DEVELOPMENT, CANNOT GUARANTEE IT WORKS
+
     ====
     geo_eqdsk class (inherited from GEO class)
     ====
@@ -1138,10 +904,10 @@ class geo_eqdsk(GEO):
         self.theta = np.linspace(0, 2*np.pi, self.n_the, endpoint=False)
         self.eqdsk_flag=1
         self.time_u = np.array([self.tbeg])
-        self.eqdsk= ReadEQDSK_MV.ReadEQDSK(infile_eqdsk)
+        self.eqdsk= ReadEQDSK_py2.ReadEQDSK(infile_eqdsk)
         self.nrho_eqdsk = len(self.eqdsk.psi_grid)
         self.psi_grid = (self.eqdsk.psi-self.eqdsk.psiaxis)/(self.eqdsk.psiedge-self.eqdsk.psiaxis)
-        print (self.psi_grid.shape)
+
         rho_eqdsk = self.eqdsk.rhopsi
         # Conversion of rho in the right grid. rhopsi is the sqrt of the flux
         #self.rho = rho_eqdsk
@@ -1164,7 +930,7 @@ class geo_eqdsk(GEO):
         # poloidal flux (F in grad-shafranov equation)
         RBT_t = self.eqdsk.T 
         self.param_RBT = interpolate.interp1d(rho_eqdsk, RBT_t)
-        RBT = (-1)*self.param_RBT(self.rho)
+        RBT = self.param_RBT(self.rho)
         self.RBT = np.expand_dims(RBT, axis=0)                      
 
         # q profile
@@ -1186,7 +952,7 @@ class geo_eqdsk(GEO):
         """
         Converts psi 2 phi
         """
-        tmpnum=1000
+        tmpnum=100
         #self.phi = np.zeros(tmpnum)
         locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
 #        locpsi = self.param_psi(np.linspace(0,1,tmpnum))*(self.eqdsk.psiedge-self.eqdsk.psiaxis)
