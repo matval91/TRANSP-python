@@ -5,7 +5,7 @@ import tcv
 import MDSplus as mds
 import numpy as np
 from scipy import interpolate
-
+import tksty
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -75,6 +75,51 @@ class AUX:
                                   'chlab': ['DNB'],
                                   'lbl': 'DNB power'.ljust(20) + 'W',
                                   'suff': 'NBI', 'prefix': 'P'}}
+        stri_launch = r'\tcv_shot::top.ecrh.measurements.launchers'
+        self.X3_angles = {
+            'L7':{'theta':
+                  {'string':stri_launch+'.theta:x3_7'},
+                  },
+            'L8':{'theta':
+                  {'string':stri_launch+'.theta:x3_8'},
+                  },
+            'L9':{'theta':
+                  {'string':stri_launch+'.theta:x3_9'},
+                  }
+            }
+                  
+        self.X2_angles = {
+            'L1':{'theta':
+                  {'string':stri_launch+'.theta:x2_1'},
+                  'phi':
+                  {'string':stri_launch+'.phi:x2_1'},
+                  },
+            'L2':{'theta':
+                  {'string':stri_launch+'.theta:x2_2'},
+                  'phi':
+                  {'string':stri_launch+'.phi:x2_2'},
+                  },
+            'L3':{'theta':
+                  {'string':stri_launch+'.theta:x2_3'},
+                  'phi':
+                  {'string':stri_launch+'.phi:x2_3'},
+                  },
+            'L4':{'theta':
+                  {'string':stri_launch+'.theta:x2_4'},
+                  'phi':
+                  {'string':stri_launch+'.phi:x2_4'},
+                  },
+            'L5':{'theta':
+                  {'string':stri_launch+'.theta:x2_5'},
+                  'phi':
+                  {'string':stri_launch+'.phi:x2_5'},
+                  },
+            'L6':{'theta':
+                  {'string':stri_launch+'.theta:x2_6'},
+                  'phi':
+                  {'string':stri_launch+'.phi:x2_6'},
+                  },
+            }                      
 
 
         print("\n")
