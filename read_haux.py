@@ -5,6 +5,7 @@ import tcv
 import MDSplus as mds
 import numpy as np
 from scipy import interpolate
+import collections 
 import tksty
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -75,52 +76,11 @@ class AUX:
                                   'chlab': ['DNB'],
                                   'lbl': 'DNB power'.ljust(20) + 'W',
                                   'suff': 'NBI', 'prefix': 'P'}}
+        # Defining dict with EC angles
         stri_launch = r'\tcv_shot::top.ecrh.measurements.launchers'
-        self.X3_angles = {
-            'L7':{'theta':
-                  {'string':stri_launch+'.theta:x3_7'},
-                  },
-            'L8':{'theta':
-                  {'string':stri_launch+'.theta:x3_8'},
-                  },
-            'L9':{'theta':
-                  {'string':stri_launch+'.theta:x3_9'},
-                  }
-            }
-                  
-        self.X2_angles = {
-            'L1':{'theta':
-                  {'string':stri_launch+'.theta:x2_1'},
-                  'phi':
-                  {'string':stri_launch+'.phi:x2_1'},
-                  },
-            'L2':{'theta':
-                  {'string':stri_launch+'.theta:x2_2'},
-                  'phi':
-                  {'string':stri_launch+'.phi:x2_2'},
-                  },
-            'L3':{'theta':
-                  {'string':stri_launch+'.theta:x2_3'},
-                  'phi':
-                  {'string':stri_launch+'.phi:x2_3'},
-                  },
-            'L4':{'theta':
-                  {'string':stri_launch+'.theta:x2_4'},
-                  'phi':
-                  {'string':stri_launch+'.phi:x2_4'},
-                  },
-            'L5':{'theta':
-                  {'string':stri_launch+'.theta:x2_5'},
-                  'phi':
-                  {'string':stri_launch+'.phi:x2_5'},
-                  },
-            'L6':{'theta':
-                  {'string':stri_launch+'.theta:x2_6'},
-                  'phi':
-                  {'string':stri_launch+'.phi:x2_6'},
-                  },
-            }                      
-
+        self.the_sig = r'\results::toray.input:theta_toray'
+        self.phi_sig = r'\results::toray.input:phi_toray'
+        self.L_angles = {}
 
         print("\n")
         print("===================")
@@ -147,7 +107,7 @@ class AUX:
             self._univec_channel
         except:
             self._get_spline()
-
+            
         self.rsig = {'EC':{}, 'NBH':{}, 'DNB':{}}
 
         for i, ch in enumerate(self.indGyro):
@@ -160,7 +120,8 @@ class AUX:
                 self.rsig[nn] = dict([\
                      ('data', self._univec_channel[nn]['spline'](self.time_u)),\
                      ('time', self.time_u)])
-                
+        self._read_ang()
+        
     def _get_spline(self):
         """
         Reads quantities 1D but with channels (EC, [NBI+DNBI])
@@ -174,28 +135,71 @@ class AUX:
         x,y = self._read_ecrh()
         for i, channels in enumerate(self.indGyro):
             ll=self.chann_sig['EC']['chlab'][channels]
-            dummy=interpolate.InterpolatedUnivariateSpline(x, y[i,:], ext=0)
+            dummy=interpolate.interp1d(x, y[i,:])
             self._univec_channel['EC'][ll] = dict([('spline', dummy)])
            
         #NBH... to add DNBI
         print('Reading signal '+self.chann_sig['NBH']['string'])
         x,y = self._read_nbi()
-        dummy = interpolate.InterpolatedUnivariateSpline(x, y, ext=0)
+        dummy = interpolate.interp1d(x, y)
         self._univec_channel['NBH'] = dict([('spline', dummy)])
 
         #DNBI
         print('Reading signal '+self.chann_sig['DNB']['string'])
         x,y = self._read_dnb()
-        dummy = interpolate.InterpolatedUnivariateSpline(x, y, ext=0)
+        dummy = interpolate.interp1d(x, y)
         self._univec_channel['DNB'] = dict([('spline', dummy)])        
-  
-                
+
+        self._read_ang
+        
+    def _read_ang(self):
+        """
+        """
+        try:
+            self.indGyro
+        except:
+            self._read_ecrh()
+
+        # now that we found the turned-on gyrotrons, we can initialise L_angles
+        _tmpdict = ['spline', 'data']
+        _angdict = dict.fromkeys(_tmpdict)
+        self.L_angles = dict.fromkeys(self.Gyroon, dict)
+        for i, key in enumerate(self.L_angles):
+            i=i+1
+            self.L_angles[key] = {'theta': dict.copy(_angdict), 'phi': dict.copy(_angdict)}
+
+            
+        flag_time=0
+        chann = {}
+        chann['theta'] = self.tree.getNode(self.the_sig)
+        chann['phi'] = self.tree.getNode(self.phi_sig)      
+        t = chann['theta'].getDimensionAt(1).data()
+        # check over time array
+        if min(t) > self.tbeg: 
+            flag_time = 1
+            dt = t[-1]-t[-2]
+            Nt = int((min(t)-self.tbeg)/dt)
+            arr_t = np.linspace( self.tbeg, np.min(t)-dt, Nt)
+            arr_y = np.zeros((Nt))
+            t = np.insert(t, 0, arr_t)
+        for ig, key in enumerate(self.Gyroon):
+            for ang in ['theta', 'phi']:
+                s = chann[ang].data()[:, ig]
+                if flag_time==1:
+                    s = np.insert(s, 0, arr_y)
+                dummy = interpolate.interp1d(t,s)
+                self.L_angles[key][ang]['spline'] = dummy
+                siginterp = dummy(self.time_u)
+                siginterp = np.nan_to_num(siginterp)
+                self.L_angles[key][ang]['data'] = siginterp
+        
     def store_aux(self):
         """
         Stores NBI and EC
         """
         self._store_nbi()
         self._store_ech()
+        self._store_ang()
         
     def _read_ecrh(self):
         """
@@ -207,6 +211,8 @@ class AUX:
         #Filtering on gyrotrons turned on in this shot
         _indGyro = np.argwhere(~np.isnan(np.nanmean(echC.data(), axis=1)))
         self.indGyro = _indGyro[:-1,0]
+        gyronames = np.array(['L1','L2','L3','L4','L5','L6','L7','L8','L9'])
+        self.Gyroon = gyronames[self.indGyro]      
         return tech, echC.data()[self.indGyro,:]
 
     def _read_nbi(self):
@@ -291,7 +297,7 @@ class AUX:
         except:
             self._read_sig()
             
-            
+        
         NBIdict=self.chann_sig['NBH']
         data=np.array([self.rsig['NBH']['data'], \
               self.rsig['DNB']['data']]).T
@@ -343,8 +349,37 @@ class AUX:
                 'data': {'lbl': dlbl, 'arr': data}}
         ufiles.WU(uf_d, udir=self.path)
 
-   
-    
+    def _store_ang(self):
+        """
+        Store the appropriate U-files for the ECH
+        """
+        try:
+            self.indGyro
+        except:
+            self.read_sig()
+            
+        arr_ec = np.arange(len(self.indGyro), dtype=int)+1
+        xlbl = 'Channel number'
+        dlbla = {'theta':'THETA'.ljust(30), 'phi':'PHI'.ljust(30)}
+        prefa = {'theta':'A', 'phi':'A'}
+        suffa = {'theta':'ECA', 'phi':'ECB'}
+
+        for ang in ['theta', 'phi']:
+            data = np.zeros((len(self.time_u), len(self.indGyro)), dtype=float)
+            for i,el in enumerate(self.Gyroon):
+                data[:, i] = self.L_angles[el][ang]['data']
+
+            dlbl = dlbla[ang]
+            pref = prefa[ang]
+            suff = suffa[ang]
+            uf_d = {'pre': pref, 'ext': suff, 'shot': self.shot,
+                    'grid': {'X': {'lbl': tlbl,
+                                   'arr': self.time_u},
+                             'Y': {'lbl': xlbl,
+                                   'arr': arr_ec}},
+                    'data': {'lbl': dlbl, 'arr': data}}
+            ufiles.WU(uf_d, udir=self.path)
+        
     def plot_input(self):
         """
         Function that plots 1D quantities. 
