@@ -15,6 +15,7 @@ from matplotlib.figure import Figure
 
 tlbl = 'Time'.ljust(20) + 'Seconds   '
 ylbl = 'rho_tor' + ' ' * 23
+
 col = 2 * ['#c00000', '#00c000', '#0000c0', '#b0b000', '#b000b0', '#00b0b0']
 fsize = 14
 sty = tksty.TKSTY()
@@ -58,9 +59,6 @@ class DWR1:
             os.system('mkdir -p %s' % self.path)
 
         self._univec = {}  # this is a dictionary of object
-        self._univec_channel = {'EC':{},\
-                                'NBH':{}, \
-                                'DNB':{}}  # this is a dictionary of object
         self.time_u = np.arange(self.tbeg, self.tend, self.dt)
 
         # this is the dictionary used for defining the proper
@@ -76,7 +74,6 @@ class DWR1:
                                'ytk': [0, 1e5, 2e5, 3e5, 4e5],
                                'lbl': 'Plasma Current Amps'},
                         'BTF': {'suff': 'RBT', 'prefix': 'B',
-#                                'string': r'tcv_bphi()',
                                 'string':r"\magnetics::RBPHI",
                                 'yl': 'R*B$_{o}$',
                                 'ytk': [300., 350, 400., 450],
@@ -90,25 +87,7 @@ class DWR1:
                                   'ytk': [-2, 0, 2, 4],
                                   'lbl': 'Vloop'.ljust(20) + '[V]',
                                   'suff': 'LOOP', 'prefix': 'V'}}
-        self.chann_sig = {'EC': {'string': r'\results::toray_input.pgyro',
-                                 'yl': r'P$_{EC}$  [W]',
-                                 'ytk': [0, 1e6, 2e6, 3e6],
-                                 'chlab': ['L1','L2','L3','L4','L5',\
-                                        'L6','L7','L8','L9'],
-                                 'lbl': 'EC power'.ljust(20) + 'W',
-                                 'suff': 'EC', 'prefix': 'P'},
-                          'NBH': {'string': r'\atlas::nbh.data.main_adc:data',
-                                  'yl': r'P$_{NBI}$  [W]',
-                                  'ytk': [0, 4e5, 8e5, 1e6],
-                                  'chlab': ['NBH'],
-                                  'lbl': 'NBI power'.ljust(20) + 'W',
-                                  'suff': 'NBI', 'prefix': 'P'},
-                          'DNB': {'string': r'tofill',
-                                  'yl': r'P$_{DNB}$  [W]',
-                                  'ytk': [0, 4e5, 8e5, 1e6],
-                                  'chlab': ['DNB'],
-                                  'lbl': 'DNB power'.ljust(20) + 'W',
-                                  'suff': 'NBI', 'prefix': 'P'}}
+
 
 
         print("\n")
@@ -156,6 +135,41 @@ class DWR1:
         
         outfile.close()
         
+    def read_1d(self):
+        """
+        Returns the dictionary of the signals (Ip,RBT,ZEFF,VLOPP,NBI)
+        """
+        try:
+            self.rsig
+        except:
+            self._read_1d()
+        print("\n")
+        print("===================")
+        print("END READING 1D")
+        print("===================")
+        print("\n")
+       
+        
+    def _read_1d(self):
+
+        """
+        We define the appropriate attribute rsig, which is a dictionary
+        with the signals and the time at the resolution needed
+        """
+        # check we define the appropriate
+        # dictionary of UnivariateSpline
+        # representation
+        try:
+            self._univec()
+        except:
+            self._getUnivecSpline()
+            
+        self.rsig = {}
+        for k in self._univec.keys():
+            self.rsig[k] = dict([('data',
+                                  self._univec[k]['spline'](self.time_u)),
+                                 ('time', self.time_u)])
+            
     def _getUnivecSpline(self):
 
         """
@@ -191,84 +205,21 @@ class DWR1:
             dat = data[_iidx]
             if k == 'IP':
                 dat = np.fabs(dat)
-#            if stri == 'tcv_bphi()':
-#                rax = self.conn.tdi(r'\results::r_axis')
-#                rax = rax.values[_iidx]
-#                dat *= rax
             tim = tim[_iidx]
             dummy = interpolate.InterpolatedUnivariateSpline(tim, \
                                                              dat, ext=0)
             self._univec[k] = dict([('spline', dummy)])
-            
-        #self._read_channels()
-        # add also the univariate spline interpolation for the NBI
+
         print("\n")
         print("===================")
-        print("END READING 1D")
+        print("Spline of 1D data done")
         print("===================")
         print("\n")
-
-        
-        
-    def _read_channels(self):
-        """
-        Reads quantities 1D but with channels (EC, [NBI+DNBI])
-        """
-
-        #EC
-        print('Reading signal '+self.chann_sig['EC']['string'])
-        x,y = self._read_ecnbi('EC')
-        for i, channels in enumerate(self.indGyro):
-            ll=self.chann_sig['EC']['chlab'][channels]
-            dummy=interpolate.InterpolatedUnivariateSpline(x, y[:,i], ext=0)
-            self._univec_channel['EC'][ll] = dict([('spline', dummy)])
-           
-        #NBH... to add DNBI
-        print('Reading signal '+self.chann_sig['NBH']['string'])
-        x,y = self._read_ecnbi('NBH')
-        dummy = interpolate.InterpolatedUnivariateSpline(x, y, ext=0)
-        self._univec_channel['NBH'] = dict([('spline', dummy)])
-
-        #DNBI
-        print('Reading signal '+self.chann_sig['DNB']['string'])
-        x,y = self._read_ecnbi('DNB')
-        dummy = interpolate.InterpolatedUnivariateSpline(x, y, ext=0)
-        self._univec_channel['DNB'] = dict([('spline', dummy)])        
-        
-    def _read_1d(self):
-
-        """
-        We define the appropriate attribute rsig, which is a dictionary
-        with the signals and the time at the resolution needed
-        """
-        # check we define the appropriate
-        # dictionary of UnivariateSpline
-        # representation
-        try:
-            self._univec()
-        except:
-            self._getUnivecSpline()
-            
-        self.rsig = {}
-        #self.rsig_channel = {'EC':{},'NBH':{}, 'DNB':{}}
-        self.rsig_channel = {'NBH':{}, 'DNB':{}}
-
-        for k in self._univec.keys():
-            self.rsig[k] = dict([('data',
-                                  self._univec[k]['spline'](self.time_u)),
-                                 ('time', self.time_u)])
-                            
-        # for k in self.rsig_channel.keys():
-        #     self.rsig_channel[k] = dict([
-        #             ('data', self._univec_channel[k]['spline'](self.time_u)),\
-        #             ('time', self.time_u)
-        #             ])  
-            
-
 
     def set_zeff(self):
         """
-        Allows to set a constant value of Zeff
+        Allows to set a constant value of Zeff. Needed because I don'trust
+        the values by diagnostic
         """
         try:
             self.rsig['ZEFF']
@@ -293,9 +244,7 @@ class DWR1:
         except:
             self._read_1d()
 
-        self._store_1d()
-        self._store_1d_channels()
-            
+        self._store_1d()        
         
     def _store_1d(self):
         """
@@ -303,15 +252,13 @@ class DWR1:
         store the ECRH which have multiple sources
         """
 
-        # first of all check the existence of self. rsig
+        # first of all check the existence of self.rsig
         try:
             self.rsig
         except:
             self._read_1d()
 
         # now we cycle to save the appropriate ufiles
-        # MV 10/2016: for P<shot>.NBI you must write also the number of NB lines
-        # used, so it has a separate writing. This is due to nubeam_driver
         for k in self.signals.keys():
             uf_d = {'pre': self.signals[k]['prefix'],
                     'ext': self.signals[k]['suff'],
@@ -322,228 +269,9 @@ class DWR1:
                              'arr': self.rsig[k]['data']}}
             
             ufiles.WU(uf_d, udir=self.path)
-        
-        
-    def _store_1d_channels(self):
-        """
-        Stores NBI and EC
-        """
-        self._store_nbi()
-        if 'EC' in self.chann_sig.keys():
-            self._store_ech()
-        
-    def read_1d(self):
-        """
-        Returns the dictionary of the signals (Ip,RBT,ZEFF,VLOPP,NBI)
-        """
-        try:
-            self.rsig
-        except:
-            self._read_1d()
-        #self.plot_input()
-        #return self.rsig
 
-    def _read_ecnbi(self, label):
-        """
-        Makes possible to read or EC or NBI, which are 1D signals but must be 
-        written to uFiles as 2D signals (time, channel)
-        """
-        if label == 'NBH':
-            x,y=self._read_nbi()
-        elif label=='DNB':
-            x,y = self._read_dnb()
-        else:
-            x,y=self._read_ecrh()
-        
-        return x,y
-            
-    def _get_nbi(self):
 
-        """
-        Get and save the corresponding ufile for the NBI signal.
-        Mimic the Matlab script from Alexander Karpushov
 
-        Parameters
-        ----------
-        shot
-
-        Returns
-        ----------
-        Returns the xdata for the NBI as read in \atlas
-
-        """
-
-        # read the estimated neutral power
-        # the data on ATLAS are written as MW, thus the conversion factor
-        # (*1e6) has been added (M. Vallar 10/2016)
-        self.nbiC = self.conn.tdi(r'\atlas::nbh.data.main_adc:data')*1e6
-
-    def _read_nbi(self):
-
-        """
-        For the NBI we get as an output directly the time and the power
-
-        """
-        try:
-            self.nbiC
-        except:
-            self._get_nbi()
-
-        # limit our self in the time interval chosen
-        _iidx = ((self.nbiC.dim_0.values >= self.tbeg-self.dt) &
-                 (self.nbiC.dim_0.values <= self.tend+self.dt))
-
-        # this is the power of the neutrals, i.e. ion power x neutral. efficiency
-        return self.nbiC.dim_0.values[_iidx], self.nbiC.values[_iidx, 36]
- 
-    def _read_dnb(self):
-
-        """
-        For the DNB we get as an output directly the time and the power
-        TO FIX BETTER; NOW INITALISES TO 0
-        """
-#        try:
-#            self.nbiC
-#        except:
-#            self._get_dnb()
-
-#        # limit our self in the time interval chosen
-#        _iidx = ((self.nbiC.dim_0.values >= self.tbeg-self.dt) &
-#                 (self.nbiC.dim_0.values <= self.tend+self.dt))
-#
-#        # this is the power of the neutrals, i.e. ion power x neutral. efficiency
-#        return self.nbiC.dim_0.values[_iidx], self.nbiC.values[_iidx, 36]
-        time_dnb  = np.linspace(self.tbeg, self.tend, num=100, dtype=float)
-        power_dnb = np.zeros(100, dtype=float)
-        return time_dnb, power_dnb
-                              
-    def _neuteff(self,E):
-        """
-        Calculates neutralization efficiency as 
-        polynomial fit of degree 5 of ELPRO data
-                               AK (2003)
-        """
-        
-        P = [-1.3785841564824268e-10, \
-             2.48797392816381106e-08,\
-             -1.151346804847086e-07,\
-             -0.00015463763952549783,\
-             -0.0015147724400023021,\
-             0.89390606995761313]
-
-        eff = np.polyval(P,E);
-        return eff
-    
-    def _nbi_energy(self):
-        """
-        Function to get average energy and energy fraction of the NBI
-        """
-        try:
-            self.nbiC
-        except:
-            self._get_nbi()
-        #power_mix = [0.773  ,0.162, 0.063, 0.002]
-
-        einj_arr=self.nbiC[:,32].data
-        ptot = self.nbiC[:,36]
-        index = ptot > 0.5e6
-        self.einj_NBI = np.mean(einj_arr[index])/1.e6 #energy in keV
-        self.effNeu = self._neuteff(self.einj_NBI)
-    
-    def _store_nbi(self):
-        """
-        Store the appropriate U-files for the NBI
-        """
-        try:
-            self.nbiC
-        except:
-            self._get_nbi()
-            self._read_1d()
-            
-            
-        NBIdict=self.chann_sig['NBH']
-        data=np.array([self.rsig_channel['NBH']['data'], \
-              self.rsig_channel['DNB']['data']]).T
-        time=self.rsig_channel['NBH']['time']
-
-        arr_nbi=np.array([1.0, 2.0])
-        xlbl = 'Channel number'
-        dlbl = NBIdict['lbl']
-        pref = NBIdict['prefix']
-        suff = NBIdict['suff']
-        uf_d = {'pre': pref, 'ext': suff, 'shot': self.shot,
-                'grid': {'X': {'lbl': tlbl,
-                               'arr': time},
-                         'Y': {'lbl': xlbl,
-                               'arr': arr_nbi}},
-                'data': {'lbl': dlbl, 'arr': data}}
-        ufiles.WU(uf_d, udir=self.path)
-
-    def _store_ech(self):
-        """
-        Store the appropriate U-files for the ECH
-        """
-        try:
-            self.echC
-        except:
-            self.read_ecrh()
-            
-        ECdict = self.chann_sig['EC']
-        try:
-            time = self.rsig_channel['EC']['L1']['time']
-        except:
-            time = self.rsig_channel['EC']['L4']['time']
-            
-        data = np.zeros((len(time), len(self.indGyro)), dtype=float)
-        for i,el in enumerate(self.rsig_channel['EC'].keys()):
-            data[:, i] = self.rsig_channel['EC'][el]['data']
-            data[data[:,i]<1.,i]=0.
-
-        arr_ec = np.arange(len(self.indGyro), dtype=int)+1
-        xlbl = 'Channel number'
-        dlbl = ECdict['lbl']
-        pref = ECdict['prefix']
-        suff = ECdict['suff']
-        uf_d = {'pre': pref, 'ext': suff, 'shot': self.shot,
-                'grid': {'X': {'lbl': tlbl,
-                               'arr': time},
-                         'Y': {'lbl': xlbl,
-                               'arr': arr_ec}},
-                'data': {'lbl': dlbl, 'arr': data}}
-        ufiles.WU(uf_d, udir=self.path)
-        
-    def _get_ecrh(self):
-
-        """
-        Hidden method for reading the gyrotron power delivered
-
-        """
-        #self.echC = self.conn.tdi(r'\results::toray.input:p_gyro')
-        self.echC = self.tree.getNode(r'\results::toray.input:p_gyro')
-
-    def _read_ecrh(self):
-        """
-        Return the power of the gyrotrons in the choosen time interval
-        """
-        try:
-            self.echC
-        except:
-            self._get_ecrh()
-
-        #_iidx = ((self.echC.dim_0.values >= self.tbeg-self.dt) &
-        #         (self.echC.dim_0.values <= self.tend+self.dt))
-#        _iidx = np.argwhere(((self.echC.getDimensionAt(0).value >= self.tbeg-self.dt) &
-#                 (self.echC.getDimensionAt(0).value <= self.tend+self.dt)))
-        _indGyro = np.argwhere(~np.isnan(np.nanmean(self.echC.data(), axis=1)))
-        self.indGyro = _indGyro[:-1,0]
-#        
-#        return self.echC.getDimensionAt(0).value[_iidx], \
-#            np.nan_to_num(self.echC.data()[self.indGyro,_iidx])
-        time_dnb  = np.linspace(self.tbeg, self.tend, num=100, dtype=float)
-        power_dnb = np.zeros(100, dtype=float)
-        return time_dnb, power_dnb
-    
-    
     def plot_input(self):
         """
         Function that plots 1D quantities. 
@@ -610,9 +338,12 @@ class DWR2:
         self.dt = indict['dt']
         self.n_rho = indict['n_rho']
         self.n_rho_eq = indict['n_rho_eq']
-        self.time_u = np.arange(self.tbeg, self.tend, self.dt)
+        
         if self.tbeg==self.tend:
             self.time_u = np.array([self.tbeg])
+        else:
+            self.time_u = np.arange(self.tbeg, self.tend, self.dt)
+            
         self.rho = np.linspace(0, 1, num=self.n_rho)
         # open the tree
         self.tree = mds.Tree('tcv_shot', self.shot)
@@ -626,14 +357,12 @@ class DWR2:
             os.system('mkdir -p %s' % self.path)
         # we build the appropriate dictionary similarly to what done
         # for the 1D signal
-        self.signals = {#'ne': {'string': r'\results::conf:ne',
-                        'ne': {'string': r'\tcv_shot::top.results.thomson.profiles.auto:ne',
+        self.signals = {'ne': {'string': r'\tcv_shot::top.results.thomson.profiles.auto:ne',
                                'zl': r'n$_e$ [10$^{19}$m$^{-3}$]',
                                'yl': r'$\rho_{\phi}$',
                                'suff': 'ELE', 'prefix': 'N',
                                'xlbl': tlbl, 'ylbl': ylbl,
                                'dlbl': 'NE                  [cm^-3]  '},
-                        #'te': {'string': r'\results::conf:te',
                         'te': {'string': r'\tcv_shot::top.results.thomson.profiles.auto:te',      
                                'zl': r'T$_e$ [eV]',
                                'yl': r'$\rho_{\phi}$',
@@ -647,21 +376,7 @@ class DWR2:
                                'xlbl': tlbl,
                                'ylbl': ylbl,
                                'dlbl': 'TI'.ljust(26) + '[eV]'}}
-                        #'vtor': {'string': r'\results::cxrs.proffit:vi_tor',
-                        #         'zl': r'v$_{\phi}$ [rad/s]',
-                        #         'yl': r'$\rho_{\phi}$',
-                        #         'suff': 'TOR', 'prefix': 'V',
-                        #         'xlbl': tlbl,
-                        #         'ylbl': ylbl,
-                        #         'dlbl': 'omg'.ljust(23) + '[rad/s]'},
-                        #'p': {'string': r'\results::conf:pe',
-#                        'p': {'string':r'\tcv_shot::top.results.thomson.profiles.auto:pe',
-#                                 'zl': r'P [Pa]',
-#                                 'yl': r'$\rho_{\phi}$',
-#                                 'suff': 'EQ', 'prefix': 'P',
-#                                 'xlbl': tlbl,
-#                                 'ylbl': ylbl,
-#                                 'dlbl': 'P'.ljust(23) + '[Pa]'}}
+
         print("\n")
         print("===================")
         print("Initialisation of 2D signals  Done")
@@ -700,34 +415,30 @@ class DWR2:
         for k in self.signals.keys():
             # now read the signals
             print('Reading signal ' + self.signals[k]['string'])
-            # retrieve the time basis of the data CONF
-            if k == 'ti':
-                tim = self.tree.getNode(self.signals[k]['string']).getDimensionAt(1).data()
-            else:
-                #this will work with THOMSON:
-                tim = self.tree.getNode(self.signals[k]['string']).getDimensionAt(0).data()
-           
+            tim = self.tree.getNode(self.signals[k]['string']).getDimensionAt(0).data()
+            
             # choose only the timining between tbeg and tend
-            if k=='vtor':
-                _idx=((tim >= self.tbeg-10*self.dt) & (tim <= self.tend+10*self.dt))
+            if self.tbeg!=self.tend:
+                if k=='vtor':
+                    #increase time limit due to lower resolution
+                    _idx=((tim >= self.tbeg-10*self.dt) & (tim <= self.tend+10*self.dt))
+                else:
+                    _idx = ((tim > self.tbeg) & (tim <= self.tend))
             else:
-                _idx = ((tim >= self.tbeg) & (tim <= self.tend))
-            if len(tim[_idx])<=4:
-                _idx = ((tim >= self.tbeg-0.1) & (tim <= self.tend+0.1))
-            #print("TIM LEN", len(tim[_idx]))
-            #print(_idx)
-            #data = self.tree.getNode(self.signals[k]['string']).data()[_idx, :]
-            if k!='ti':
+                _idx = np.argmin(tim-self.tbeg > 0)
+
+            if k=='ti':
             # with thomson
-                data = self.tree.getNode(self.signals[k]['string']).data()[:, _idx]
-            else:
                 data = self.tree.getNode(self.signals[k]['string']).data()[_idx,:]
-            #data = np.mean(data, axis=0)
+            else:
+                data = self.tree.getNode(self.signals[k]['string']).data()[:, _idx]
+
             if k=='ne':
                 data=data*1e-6
-            # and now limit the time
+
             tim = tim[_idx]
-            #print("TIM", tim)
+
+            
             # now the fake rhotoroidal equidistant grid
             _rhotor = np.linspace(1e-9, 1, num=128)
             # different approach if for the toroidal velocity which is not
@@ -744,15 +455,11 @@ class DWR2:
                 rhot = self.tree.getNode(r'\results::conf:rhotor').data()[_idx,:]
                 rhot = np.sqrt(rhot)
             else:
-            #if k == 'per':
                 rhop = self.tree.getNode(r'\results::thomson.profiles.auto:rho').data()
                 rhot = np.zeros((tim.size, rhop.shape[0]))
                 for t, i in zip(tim, range(tim.size)):
                     rhot[i, :] = self.eq.psinorm2phinorm(rhop, t,
                                                          sqrt=True)
-            #else:
-            #    # load the rho toroidal saved in the conf tree
-            #    rhot = self.tree.getNode(r'\results::conf:rhotor').data()[_idx, :]
 
             signal = np.zeros((tim.size, _rhotor.size))
                 
@@ -776,8 +483,16 @@ class DWR2:
             # spline on the appropriate grid
             self._brep[k] = dict([('spline', brep)])
 
-
-
+    def _read_ticonf(self):
+        """
+        Function to read the ti data from conf nodes, which has different structure from the thomson
+        """
+        tim = self.tree.getNode(self.signals[k]['string']).getDimensionAt(0).data()
+        # choose only the timining between tbeg and tend
+        if self.tbeg!=self.tend:
+                _idx = ((tim > self.tbeg) & (tim <= self.tend))
+        else:
+                _idx = np.argmin(tim-self.tbeg > 0)
             
     def read_2d(self):
         """
