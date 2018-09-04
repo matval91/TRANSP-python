@@ -12,6 +12,7 @@ from matplotlib import colors, interactive, ticker
 import math, collections
 import scipy.interpolate as interp
 import glob, os, shutil
+from ascot_utils import common_style, limit_labels, _cumulative_plot
 
 col = ['k','r','b','m','g','c']
 
@@ -310,10 +311,10 @@ class output_1d:
             self.gi_vavg[time_ind] = np.trapz(self.gi[time_ind,:], self.rho)   
         self.gi_mean = np.mean(self.gi_vavg[self.inj_index])
 
-    def plot_input(self, time=0):
+    def plot_input(self, time=[0]):
         """
         """
-        if time[0]!=0 or time!=0:
+        if time[0]!=0:
             ind=[]
             for t in time:
                 ind.append(np.argmin(self.t-t<0.))
@@ -332,15 +333,14 @@ class output_1d:
         """
         Plots input quantities, such as ne, ni, Te, Ti averaged
         """
-        plt.rc('figure', facecolor='white')
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
+        
         try:
             self.ne_mean.mean()
         except:
             self._average_kin()
         
+        common_style()
+            
         f = plt.figure(figsize=(8, 8))
         axne = f.add_subplot(211)
         axTe = f.add_subplot(212, sharex=axne)
@@ -354,6 +354,10 @@ class output_1d:
         axTe.set_xlabel(r'Time (s)'); axTe.set_ylabel(r'$\langle T \rangle$ [$eV$]')
         #axzf.set_xlabel(r'Time (s)'); axzf.set_ylabel(r'$Z_{EFF}$')
 
+
+        limit_labels(axne, r'Time (s)', r'$\langle n \rangle$ [$1/m^3$]','' )
+        limit_labels(axTe, r'Time (s)', r'$\langle T \rangle$ [$eV$]','' )
+
         #====================================================
         # SET TICK LOCATION
         #====================================================
@@ -361,17 +365,6 @@ class output_1d:
             if ind[0]!=0:
                 for i, el in enumerate(ind):
                     ax.axvline(x=self.t[el], color=col[i], lw=2., linestyle='--')
-
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            #ax.yaxis.set_minor_locator(yticks_m)
-            ax.xaxis.set_major_locator(xticks)
-            #========================================================
             ax.legend(loc='best')
             ax.grid('on')
 
@@ -384,16 +377,13 @@ class output_1d:
         """
         Plots input quantities, such as ne, ni, Te, Ti profiles
         """
-        plt.rc('figure', facecolor='white')
-        plt.rc('xtick', labelsize=16)
-        plt.rc('ytick', labelsize=16)
-        plt.rc('axes', labelsize=20)
         try:
             self.kin_vars['ne'].mean()
         except:
             print "No ne data"
             return
-        
+        common_style()
+       
         f = plt.figure(figsize=(10,8))
         axne = f.add_subplot(221)
         axni = f.add_subplot(222, sharey=axne)
@@ -406,6 +396,11 @@ class output_1d:
             axni.plot(self.rho, self.kin_vars['ni'][el,:], col[i], label=lab, lw=2.)
             axTe.plot(self.rho, self.kin_vars['te'][el,:]*1e-3, col[i], label=lab, lw=2.)
             axTi.plot(self.rho, self.kin_vars['ti'][el,:]*1e-3, col[i], label=lab, lw =2.)
+
+        limit_labels(axne, r'$\rho$', r'$n_e$ [$1/m^3$]','' )
+        limit_labels(axTe, r'$\rho$', r'$T_e$ [$keV$]','' )
+        limit_labels(axni, r'$\rho$', r'$n_i$ [$1/m^3$]','' )
+        limit_labels(axTi, r'$\rho$', r'$T_i$ [$keV$]','' )
 
         #========================================================
         # SET TICK LOCATION
@@ -421,14 +416,6 @@ class output_1d:
             #ax.yaxis.set_minor_locator(yticks_m)
             ax.xaxis.set_major_locator(xticks)
             #========================================================
-            ax.set_xlabel(r'$\rho$')
-            ax.grid('on')
-
-        axne.set_ylabel(r'$n_e$ [$1/m^3$]')
-        axTe.set_ylabel(r'$T_e$ [$keV$]')
-
-        axni.set_ylabel(r'$n_i$ [$1/m^3$]')
-        axTi.set_ylabel(r'$T_i$ [$keV$]')
 
         axne.legend(bbox_to_anchor=(0, .1, -0.1, .102))#, axTe.legend(loc='best')
         f.text(0.01, 0.01, self.fname)
@@ -469,15 +456,12 @@ class output_1d:
             self.gi.mean()
         except:
             self._calculate_gi()
-        plt.rc('figure', facecolor='white')
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
         try:
             self.pe.mean()
         except:
             self._calculate_scalars()
         
+        common_style()
         f = plt.figure(figsize=(10, 8))
         axp = f.add_subplot(211)
         axf = f.add_subplot(212, sharex=axp)
@@ -491,18 +475,12 @@ class output_1d:
                 for i, el in enumerate(ind):
                     ax.axvline(x=self.t[self.inj_index[el]], color=col[i], lw=2., linestyle='--')
 
+        limit_labels(axp,r'Time (s)',r'P[kW]','')
+        limit_labels(axf,r'Time (s)',r'%','')
+        
         axp.set_xlabel(r'Time (s)'); axp.set_ylabel(r'P[kW]')
         axf.set_xlabel(r'Time (s)'); axf.set_ylabel(r'%')
 
-        # Create your ticker object with M ticks
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # Set the yaxis major locator using your ticker object. You can also choose the minor
-        # tick positions with set_minor_locator.
-        axp.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        axp.xaxis.set_major_locator(xticks)
         #========================================================
         axp.legend(loc='best'); axf.legend(loc='best')
         axp.grid('on'); axf.grid('on')
@@ -516,10 +494,7 @@ class output_1d:
         """
         Plots deposition to ions, electrons
         """
-        plt.rc('figure', facecolor='white')
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
+        common_style()
         try:
             self.nb_FKP_vars['pi'].mean()
         except:
@@ -539,28 +514,10 @@ class output_1d:
             axe.plot(x, self.nb_FKP_vars['pe'][i,:]*1e-3, col[index], lw=2, label=lab)
             axn.plot(x, self.nb_FKP_vars['n'][i, :]/self.kin_vars['ne'][i,:]*100., col[index], lw=2, label=lab)
             axj.plot(x, self.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index], lw=2, label=lab)
-
-        #========================================================
-        # SET TICK LOCATION
-        #====================================================
-        for ax in [axe, axi, axn, axj]:
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            #ax.yaxis.set_minor_locator(yticks_m)
-            ax.xaxis.set_major_locator(xticks)
-            #========================================================
-            ax.set_xlabel(r'$\rho$')
-            ax.grid('on')            
-            
-        axe.set_ylabel(r'$P_e$ [$kW/m^3$]')
-        axi.set_ylabel(r'$P_i$ [$kW/m^3$]')
-        axn.set_ylabel(r'$n_f/n_e$ (%)')
-        axj.set_ylabel(r'j shielded [$kA/m^2$]')
+        limit_labels(axe,r'$\rho$', r'$P_e$ [$kW/m^3$]','')
+        limit_labels(axi,r'$\rho$', r'$P_i$ [$kW/m^3$]','')
+        limit_labels(axn,r'$\rho$', r'$n_f/n_e$ (%)','')
+        limit_labels(axj,r'$\rho$', r'j shielded [$kA/m^2$]','')
 
         axe.legend(bbox_to_anchor=(0, .1, -0.1, .102))
         f.text(0.01, 0.01, self.fname)
@@ -574,11 +531,7 @@ class output_1d:
         """
         Plot current drive
         """
-        plt.rc('figure', facecolor='white')
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-
+        common_style()
         try:
             self.nb_FKP_vars['nbcd'].mean()
         except:
@@ -611,31 +564,11 @@ class output_1d:
         for i, el in enumerate(ind):
             axj.plot(self.rho, self.nb_FKP_vars['nbcd'][self.inj_index[el],:]*1e-3, \
                      col[i],lw=2.3,label=r't = {:.2f}'.format(self.t[self.inj_index[el]]))
-        
-        axj.set_xlabel(r'$\rho$'); axj.set_ylabel(r'$j^{SH}$ [$kA/m^2$]')
-        axcd.set_xlabel(r't [s]'); axcd.set_ylabel(r'Driven current [$kA$]')
+        limit_labels(axj, r'$\rho$', r'$j^{SH}$ [$kA/m^2$]')
+        limit_labels(axcd, r't [s]', r'Driven current [$kA$]')
         axcd.legend(loc='best')
-        axsh.set_xlabel(r't [s]'); axsh.set_ylabel(r'$1-I_{SH}/I_{UN}$')        
-        axeff.set_xlabel(r't [s]'); axeff.set_ylabel(r' $\eta \left[\frac{10^{18} A}{W m^2}\right]$')  
-        axeff.set_title(r'NBCD efficiency')
-        axeff.set_ylim([0,1.])
-
-        #========================================================
-        # SET TICK LOCATION
-        #====================================================
-        for ax in [axj, axcd, axsh, axeff]:
-
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            #ax.yaxis.set_minor_locator(yticks_m)
-            ax.xaxis.set_major_locator(xticks)
-            #========================================================
-            ax.grid('on') 
+        limit_labels(axsh, r't [s]', r'$1-I_{SH}/I_{UN}$')
+        limit_labels(axeff, r't [s]', r' $\eta \left[\frac{10^{18} A}{W m^2}\right]$', r'NBCD efficiency')
         
         axj.legend(bbox_to_anchor=(1.2,1.2))
         f.text(0.01, 0.01, self.runid)
@@ -644,9 +577,6 @@ class output_1d:
 
         plt.show()
 
-
-
-       
     def _average_kin(self):
         """
         Calculates the average of densities and temperatures
@@ -735,17 +665,7 @@ class output_1d:
     def plot_performance(self):
         """
         """
-        #=====================================================================================
-        # SET TEXT FONT AND SIZE
-        #=====================================================================================
-        #plt.rc('font', family='serif', serif='Palatino')
-        #plt.rc('text', usetex=True)
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-        #=====================================================================================    
-
-
+        common_style()
         try:
             self.perf_vars['jboot'].mean()
         except:
@@ -766,9 +686,9 @@ class output_1d:
 
         ### TEMP THING
         d=np.loadtxt('/home/vallar/ibs_59331.dat', delimiter=',')
-        axcd.plot(d[:,0], d[:,1], 'k--', lw=2.5, label='EXP')
+        axcd.plot(d[:,0], d[:,1], 'k--', lw=2.5, label='EXP for 59331')
 
-        axcd.set_xlabel(r't [s]'); axcd.set_ylabel(r'Bootstrap current [kA]')
+        limit_labels(axcd, r't [s]', r'Bootstrap current [kA]')
         f.tight_layout(), f.suptitle(self.fname)
         axcd.legend(loc='best')
         axcd.grid('on')
@@ -878,6 +798,64 @@ class output_1d:
         header = 'rho tor\t  ne[1/m3]\t ni[1/m3]\t Te[eV]\t\t Ti[eV]'
         out_fname='input_'+str(timeslice*100.)+'.dat'
         np.savetxt(out_fname, np.transpose(data), fmt='%.5e', delimiter='\t', header=header)
+
+    def n0_core(self):
+        """ plot n0 at 0
+        """
+        v_source = self.file.variables['DN0VD'][:]
+        w_source = self.file.variables['DN0WD'][:]
+
+        CXfastn = self.file.variables['N0BCXD0'][:]
+        first_fastn = self.file.variables['N0BD0'][:]
+        halob = self.file.variables['N0BH_D'][:]
+        Drecy = self.file.variables['N0RC_D_D'][:]
+        Dflow= self.file.variables['N0GF_D_D'][:]
+        Dsflow= self.file.variables['N0SGF_D'][:]
+        Dnrecy= self.file.variables['N0SRC_D'][:]
+        Drec= self.file.variables['N0V0_D'][:]
+         
+        tot_source = v_source+w_source+first_fastn+CXfastn+Drecy+Dflow+halob+Dsflow+Dnrecy+Drec
+
+        f=plt.figure(); ax=f.add_subplot(111)
+        ax.plot(self.t, tot_source[:, 0]*1e6, 'k', lw=2.3, label='tot')
+        ax.plot(self.t, v_source[:,0]*1e6, 'b', lw=2.3, label='Volume')
+        ax.plot(self.t, halob[:,0]*1e6, 'm', lw=2.3, label='halo')
+        ax.plot(self.t, first_fastn[:,0]*1e6, 'c', lw=2.3, label='fastn')
+        ax.plot(self.t, w_source[:,0]*1e6, 'r', lw=2.3, label='wall')
+        ax.plot(self.t, Drecy[:,0]*1e6+Dnrecy[:,0]*1e6+Drec[:,0]*1e6, 'g', lw=2.3, label='Recy')
+        ax.plot(self.t, CXfastn[:,0]*1e6,'y', lw=2.3, label='CX')
+        ax.set_xlabel(r't [s]'); ax.set_ylabel(r'n0 [1/m3]')
+        ax.legend(loc='best'); ax.grid('on')
+        plt.show()
+
+    def n0_edge(self):
+        """ plot n0 at lcfs
+        """
+        v_source = self.file.variables['DN0VD'][:]
+        w_source = self.file.variables['DN0WD'][:]
+
+        CXfastn = self.file.variables['N0BCXD0'][:]
+        first_fastn = self.file.variables['N0BD0'][:]
+        halob = self.file.variables['N0BH_D'][:]
+        Drecy = self.file.variables['N0RC_D_D'][:]
+        Dflow= self.file.variables['N0GF_D_D'][:]
+        Dsflow= self.file.variables['N0SGF_D'][:]
+        Dnrecy= self.file.variables['N0SRC_D'][:]
+        Drec= self.file.variables['N0V0_D'][:]
+         
+        tot_source = v_source+w_source+first_fastn+CXfastn+Drecy+Dflow+halob+Dsflow+Dnrecy+Drec
+        self.tot_n0 = tot_source
+        f=plt.figure(); ax=f.add_subplot(111)
+        ax.plot(self.t, tot_source[:, -1]*1e6, 'k', lw=2.3, label='tot')
+        ax.plot(self.t, v_source[:,-1]*1e6, 'b', lw=2.3, label='Volume')
+        ax.plot(self.t, halob[:,-1]*1e6, 'm', lw=2.3, label='halo')
+        ax.plot(self.t, first_fastn[:,-1]*1e6, 'c', lw=2.3, label='fastn')
+        ax.plot(self.t, w_source[:,-1]*1e6, 'r', lw=2.3, label='wall')
+        ax.plot(self.t, Drecy[:,-1]*1e6+Dnrecy[:,-1]*1e6+Drec[:,-1]*1e6, 'g', lw=2.3, label='Recy')
+        ax.plot(self.t, CXfastn[:,-1]*1e6,'y', lw=2.3, label='CX')
+        ax.set_xlabel(r't [s]'); ax.set_ylabel(r'n0 [1/m3]')
+        ax.legend(loc='best'); ax.grid('on')
+        plt.show()
 
 class absorption:
     """
@@ -1716,22 +1694,6 @@ def _save_singleframe(x, y, z, xlab, ylab, title, xlim, ylim, vmax, savename, **
     ax.set_title(title)
     plt.savefig(savename+'.png', bbox_inches='tight')
     interactive(True)
-        
-def _cumulative_plot(x,y,labels, xlabel, ylabel, title):
-    f  = plt.figure()
-    ax = f.add_subplot(111)
-    tmpy=np.zeros(len(x))
-    for i, el in enumerate(y):
-        tmpy+=el
-        ax.plot(x,tmpy, col[i], lw=2.5, label=labels[i])
-        ax.fill_between(x, tmpy, tmpy-el, color=col[i])
-            
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.legend(loc='best')    
-    f.text(0.01, 0.01, title)
-    ax.grid('on')
-    
     
 def _radar_plot(N, values, categories, title):
     """
