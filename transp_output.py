@@ -12,9 +12,11 @@ from matplotlib import colors, interactive, ticker
 import math, collections
 import scipy.interpolate as interp
 import glob, os, shutil
-from ascot_utils import common_style, limit_labels, _cumulative_plot
+from ascot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d
 
 col = ['k','r','b','m','g','c']
+col2=np.copy(col)
+col2[0]='y'
 
 cdict = {'red': ((0., 1, 1),
                  (0.05, 1, 1),
@@ -325,7 +327,7 @@ class output_1d:
                 ind = np.linspace(0, len(self.t)-1, 5)
                 ind = ind.astype(int)
             ind_1d=[0]
-        self.plot_input_1d(ind_1d)
+        self.plot_input_1d(ind)
         self.plot_input_prof(ind)
         
         
@@ -338,7 +340,6 @@ class output_1d:
             self.ne_mean.mean()
         except:
             self._average_kin()
-        
         common_style()
             
         f = plt.figure(figsize=(8, 8))
@@ -350,25 +351,25 @@ class output_1d:
         axTe.plot(self.t, self.Te_vavg, 'k', lw=2.3, label=r'e')
         axTe.plot(self.t, self.Ti_vavg, 'r', lw=2.3, label=r'i')
         #axzf.plot(self.t, self.imp_vars['Zeff'][:,0], 'k', lw=2.3)
-        axne.set_xlabel(r'Time (s)'); axne.set_ylabel(r'$\langle n \rangle$ [$1/m^3$]')
-        axTe.set_xlabel(r'Time (s)'); axTe.set_ylabel(r'$\langle T \rangle$ [$eV$]')
-        #axzf.set_xlabel(r'Time (s)'); axzf.set_ylabel(r'$Z_{EFF}$')
+        axne.set_xlabel(r'Time [s]'); axne.set_ylabel(r'$\langle n \rangle$ [$1/m^3$]')
+        axTe.set_xlabel(r'Time [s]'); axTe.set_ylabel(r'$\langle T \rangle$ [$eV$]')
+        #axzf.set_xlabel(r'Time [s]'); axzf.set_ylabel(r'$Z_{EFF}$')
 
 
-        limit_labels(axne, r'Time (s)', r'$\langle n \rangle$ [$1/m^3$]','' )
-        limit_labels(axTe, r'Time (s)', r'$\langle T \rangle$ [$eV$]','' )
+        limit_labels(axne, r'Time [s]', r'$\langle n \rangle$ [$1/m^3$]','' )
+        limit_labels(axTe, r'Time [s]', r'$\langle T \rangle$ [$eV$]','' )
 
         #====================================================
         # SET TICK LOCATION
         #====================================================
         for ax in [axne, axTe]:#, axzf]:
-            if ind[0]!=0:
+            if len(ind)!=1:
                 for i, el in enumerate(ind):
                     ax.axvline(x=self.t[el], color=col[i], lw=2., linestyle='--')
             ax.legend(loc='best')
             ax.grid('on')
 
-        f.text(0.01, 0.01, self.fname)
+        #f.text(0.01, 0.01, self.fname)
         f.tight_layout()
         plt.show()    
 
@@ -384,7 +385,7 @@ class output_1d:
             return
         common_style()
        
-        f = plt.figure(figsize=(10,8))
+        f = plt.figure(figsize=(12,10))
         axne = f.add_subplot(221)
         axni = f.add_subplot(222, sharey=axne)
         axTe = f.add_subplot(223)
@@ -417,18 +418,19 @@ class output_1d:
             ax.xaxis.set_major_locator(xticks)
             #========================================================
 
-        axne.legend(bbox_to_anchor=(0, .1, -0.1, .102))#, axTe.legend(loc='best')
-        f.text(0.01, 0.01, self.fname)
+        #axne.legend(bbox_to_anchor=(0, .1, -0.1, .102))#, axTe.legend(loc='best')
+        axTi.legend(loc='best')
+        #f.text(0.01, 0.01, self.fname)
 
         f.tight_layout()
-        f.subplots_adjust(left=0.2)
+        #f.subplots_adjust(left=0.2)
         plt.show()    
 
     def plot_deposition(self, time=[0]):
         """
         """
 
-        if time==0:
+        if len(time)==1:
             if self.nt > 5:
                 ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index)-1, 5)
                 ind = ind.astype(int)
@@ -446,7 +448,8 @@ class output_1d:
         """
         """
         ind=np.argmin(self.t-timeslice<0)
-        self._plot_deposition_prof(ind=ind)
+        ind=np.array(ind)
+        self._plot_deposition_prof(ind=[ind])
         
 
     def _plot_deposition_1d(self, ind=[0]):
@@ -475,22 +478,18 @@ class output_1d:
                 for i, el in enumerate(ind):
                     ax.axvline(x=self.t[self.inj_index[el]], color=col[i], lw=2., linestyle='--')
 
-        limit_labels(axp,r'Time (s)',r'P[kW]','')
-        limit_labels(axf,r'Time (s)',r'%','')
+        limit_labels(axp,r'Time [s]',r'P[kW]','')
+        limit_labels(axf,r'Time [s]',r'%','')
         
-        axp.set_xlabel(r'Time (s)'); axp.set_ylabel(r'P[kW]')
-        axf.set_xlabel(r'Time (s)'); axf.set_ylabel(r'%')
-
-        #========================================================
         axp.legend(loc='best'); axf.legend(loc='best')
         axp.grid('on'); axf.grid('on')
-        axp.set_ylim([0,400]); axf.set_ylim([0,100.])
-        f.text(0.01, 0.01, self.fname)
+        axp.set_ylim([0,160]); axf.set_ylim([0,100.])
+        #f.text(0.01, 0.01, self.fname)
         f.tight_layout()
         plt.show()     
         
         
-    def _plot_deposition_prof(self, ind=0, **kwargs):
+    def _plot_deposition_prof(self, ind=[0], **kwargs):
         """
         Plots deposition to ions, electrons
         """
@@ -500,44 +499,47 @@ class output_1d:
         except:
             print "No Pi data"
             return
-        if ind==0:
+        if len(ind)==1:
             ind = np.linspace(0, len(self.inj_index)-1, 5, dtype=int)
-        f = plt.figure(figsize=(10,8))
-        axe = f.add_subplot(221)
-        axi = f.add_subplot(222, sharex=axe, sharey=axe)
-        axn = f.add_subplot(223, sharex=axe)
-        axj = f.add_subplot(224, sharex=axe)
+        f = plt.figure(figsize=(18,6))
+        axe = f.add_subplot(131)
+        axi = f.add_subplot(132, sharex=axe, sharey=axe)
+        axn = f.add_subplot(133, sharex=axe)
+        #axj = f.add_subplot(144, sharex=axe)
         x=self.rho
         for index, i in enumerate(self.inj_index[ind]):
-            lab=r't = {:.2f}'.format(self.t[i])
+            lab=r't = {:.2f} s'.format(self.t[i])
             axi.plot(x, self.nb_FKP_vars['pi'][i,:]*1e-3, col[index], lw=2, label=lab)
             axe.plot(x, self.nb_FKP_vars['pe'][i,:]*1e-3, col[index], lw=2, label=lab)
             axn.plot(x, self.nb_FKP_vars['n'][i, :]/self.kin_vars['ne'][i,:]*100., col[index], lw=2, label=lab)
-            axj.plot(x, self.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index], lw=2, label=lab)
+            #axj.plot(x, self.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index], lw=2, label=lab)
         limit_labels(axe,r'$\rho$', r'$P_e$ [$kW/m^3$]','')
         limit_labels(axi,r'$\rho$', r'$P_i$ [$kW/m^3$]','')
-        limit_labels(axn,r'$\rho$', r'$n_f/n_e$ (%)','')
-        limit_labels(axj,r'$\rho$', r'j shielded [$kA/m^2$]','')
-
-        axe.legend(bbox_to_anchor=(0, .1, -0.1, .102))
-        f.text(0.01, 0.01, self.fname)
+        limit_labels(axn,r'$\rho$', r'$n_f/n_e$ [%]','')
+        #limit_labels(axj,r'$\rho$', r'j shielded [$kA/m^2$]','')
+        
+        axn.legend(bbox_to_anchor=(1.05, 0.65), loc=2)
+        #f.text(0.01, 0.01, self.fname)
 
         f.tight_layout()
-        f.subplots_adjust(left=0.2)
+        f.subplots_adjust(right=0.8)
         plt.show()   
         
         
-    def plot_NBCD(self, time=0):
+    def plot_NBCD(self, time=[0]):
         """
         Plot current drive
         """
         common_style()
+
+        plt.rc('legend', fontsize=15)
+
         try:
             self.nb_FKP_vars['nbcd'].mean()
         except:
             print "No nbcd data"
             return
-        if time==0:
+        if time[0]==0:
             ind=[0]
             #if self.nt > 5:
             #    ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index)-1, 5)
@@ -554,26 +556,26 @@ class output_1d:
         axsh = f.add_subplot(222)
         axeff = f.add_subplot(223)
         for ax in [axcd, axsh, axeff]:
-            if time!=0:
+            if time[0]!=0:
                 for i, el in enumerate(ind):
                     ax.axvline(x=self.t[self.inj_index[el]], color=col[i], lw=1.8, linestyle='--')
-        axcd.plot(self.t[self.inj_index], self.nbcd[self.inj_index]*1e-3, 'k', lw=2.3, label='shielded')
-        axcd.plot(self.t[self.inj_index], self.unbcd[self.inj_index]*1e-3, 'k:', lw=2.3, label='unshielded')   
+        axcd.plot(self.t[self.inj_index], self.nbcd[self.inj_index]*1e-3, 'k', lw=2.3, label='SH.')
+        axcd.plot(self.t[self.inj_index], self.unbcd[self.inj_index]*1e-3, 'k:', lw=2.3, label='UNSH.')   
         axsh.plot(self.t[self.inj_index], 1.-self.shield[self.inj_index], 'k', lw=2.3)
         axeff.plot(self.t[self.inj_index], self.eff[self.inj_index]*100., 'k', lw=2.3)
         for i, el in enumerate(ind):
             axj.plot(self.rho, self.nb_FKP_vars['nbcd'][self.inj_index[el],:]*1e-3, \
-                     col[i],lw=2.3,label=r't = {:.2f}'.format(self.t[self.inj_index[el]]))
+                     col[i],lw=2.3,label=r't = {:.2f} s'.format(self.t[self.inj_index[el]]))
         limit_labels(axj, r'$\rho$', r'$j^{SH}$ [$kA/m^2$]')
-        limit_labels(axcd, r't [s]', r'Driven current [$kA$]')
+        limit_labels(axcd, r't [s]', r'$I_{CD}$ [$kA$]')
         axcd.legend(loc='best')
         limit_labels(axsh, r't [s]', r'$1-I_{SH}/I_{UN}$')
         limit_labels(axeff, r't [s]', r' $\eta \left[\frac{10^{18} A}{W m^2}\right]$', r'NBCD efficiency')
-        
-        axj.legend(bbox_to_anchor=(1.2,1.2))
-        f.text(0.01, 0.01, self.runid)
+        axeff.set_ylim([0,0.6])
+        axj.legend(bbox_to_anchor=(-2.35,1.65), loc=2)
+        #f.text(0.01, 0.01, self.runid)
         f.tight_layout();
-        f.subplots_adjust(left=0.2)
+        f.subplots_adjust(left=0.22, right=0.9)
 
         plt.show()
 
@@ -694,7 +696,7 @@ class output_1d:
         axcd.grid('on')
         plt.show()
 
-    def plot_powerbalance(self):
+    def plot_powerbalance(self, time=[0]):
         """
         Plots the power balance with cumulative plot
         """
@@ -702,27 +704,42 @@ class output_1d:
             self.pe.mean()
         except:
             self._calculate_scalarpower()
-        
+        if time[0]==0:
+            ind=[0]
+            #if self.nt > 5:
+            #    ind = np.linspace(np.min(self.inj_index), np.max(self.inj_index)-1, 5)
+            #    ind = ind.astype(int)
+        else:
+            ind=[]
+            for t in time:
+                ind.append(np.argmin(self.t[self.inj_index]-t<0.))
+            ind=np.array(ind,dtype=int)
         x=self.t
         y=[(self.pi+self.pe+self.pth)*1e-6, self.pcx*1e-6, self.pol*1e-6, self.psh*1e-6]
         pin = self.nb_in_vars['P']
-        labels = ['Absorbed', 'CX-losses', 'Orbit losses', 'Shine-through']
+        labels = ['Abs.', 'CX', 'O. L.', 'Shine-thr.']
         xlabel = r'Time [s]'
         ylabel = r'Power [MW]'
         
-        f=plt.figure()
-        axfrac = f.add_subplot(111)
+        f=plt.figure(figsize=(15,5))
+        axfrac = f.add_subplot(122)
         for i, el in enumerate(y):
-            axfrac.plot(self.t, el/pin*1e6*100., color=col[i], lw=2.3, label=labels[i])
-        axfrac.legend(loc='best')
-        axfrac.set_xlabel(xlabel)
-        axfrac.set_ylabel(r'Fraction (%)')
-        axfrac.set_ylim([0, 100])
-        f.text(0.01, 0.01, self.runid)
+            axfrac.plot(self.t, el/pin*1e6*100., color=col2[i], lw=2.3, label=labels[i])
+        axfrac.legend(loc=2, bbox_to_anchor=(1.05, .7))
+        axfrac.set_ylim([0, 50])
+        #f.text(0.01, 0.01, self.runid)
+        limit_labels(axfrac, xlabel, r'Fraction [%]')
         axfrac.grid('on')
-
-        _cumulative_plot(x,y,labels, xlabel, ylabel, self.runid)
-
+        
+        axabs = f.add_subplot(121)
+        _cumulative_plot(x,y,labels, xlabel, ylabel, col2, ax=axabs, title='')
+        #plt.legend(loc='best')
+        if len(time)!=1:
+            for i, el in enumerate(ind):
+                axfrac.axvline(x=self.t[self.inj_index[el]], color='k', lw=2.3, linestyle='--')       
+                axabs.axvline(x=self.t[self.inj_index[el]], color='k', lw=2.3, linestyle='--')       
+        f.tight_layout()
+        f.subplots_adjust(right=0.8)        
 
     def _calculate_eff(self):                
         """
@@ -771,7 +788,7 @@ class output_1d:
         values = [self.pabs_mean/self.pin_mean*100., self.nbcd_mean*1e-3, \
                     self.nf_mean/self.ne_mean*100., self.gi_mean*100.]#, \
                     #self.eff_mean ]
-        categories = [r'$P_{ABS}$', r'$I_{CD}$', r'$n_f/n_e$ (%)', r'$G_i$']#, r'$\eta$']
+        categories = [r'$P_{ABS}$', r'$I_{CD}$', r'$n_f/n_e$ [%]', r'$G_i$']#, r'$\eta$']
         _radar_plot(N, values, categories, title='Deposition')
 
 
@@ -828,7 +845,7 @@ class output_1d:
         ax.legend(loc='best'); ax.grid('on')
         plt.show()
 
-    def n0_edge(self):
+    def plot_n0_edge(self):
         """ plot n0 at lcfs
         """
         v_source = self.file.variables['DN0VD'][:]
@@ -844,7 +861,7 @@ class output_1d:
         Drec= self.file.variables['N0V0_D'][:]
          
         tot_source = v_source+w_source+first_fastn+CXfastn+Drecy+Dflow+halob+Dsflow+Dnrecy+Drec
-        self.tot_n0 = tot_source
+        self.n0_tot = tot_source
         f=plt.figure(); ax=f.add_subplot(111)
         ax.plot(self.t, tot_source[:, -1]*1e6, 'k', lw=2.3, label='tot')
         ax.plot(self.t, v_source[:,-1]*1e6, 'b', lw=2.3, label='Volume')
@@ -978,30 +995,19 @@ class absorption:
             
         return name_dict, var_dict
 
-    def plot_RZpart(self):
+    def plot_RZ(self):
         """
         Method to plot R vs z of the ionised particles, useful mostly with bbnbi
         """
         x=self.data_i['R']
         y=self.data_i['z']
 
-        f=plt.figure()
-        ax = f.add_subplot(111)
-        #hb = ax.hexbin(x, y, gridsize=100, cmap=my_cmap)
-        hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-        f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('R')
-        ax.set_ylabel('z')
-
-        if len(self.R_w)==0:
-            self._readwall()
-        ax.plot(self.R_w , self.z_w, 'k', linewidth=3)
-
-        ax.axis('equal')
-        ax.axis([min(self.R_w), max(self.R_w), min(self.z_w), max(self.z_w)])
-        #ax.set_xrange([min(self.R_w), max(self.R_w)])
-        #ax.set_yrange([min(self.z_w), max(self.z_w)])                   
-        plt.show()
+        xlab = 'R [m]'
+        ylab = 'z [m]'
+        wallrz= [self.R_w, self.z_w]
+        #surf=[self.Rsurf, self.zsurf, self.RZsurf]
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id='', title='RZ ionization',\
+                 wallrz=wallrz, xlim=[0.6, 1.1], scatter=1)
         
     def plot_XYpart(self):
         """
@@ -1240,6 +1246,7 @@ class fbm:
                 self._integrate_spacep()
                 
             self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+            self.norm=1.
             #print "NORM = ", self.norm
 
     def _readwall(self):
@@ -1290,7 +1297,7 @@ class fbm:
         """
         Function to integrate over (R,z)
         """
-        dist_toint = self.fdist_notnorm[:,:,:,:]/self.norm
+        dist_toint = self.fdist_notnorm[:,:,:,:]
 
         for i, el in enumerate(self.dict_dim['R']):
             dist_toint[:,:,:,i] *= 2*math.pi*el
