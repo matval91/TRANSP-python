@@ -14,7 +14,7 @@ from matplotlib import colors, interactive, ticker
 import math, collections
 import scipy.interpolate as interp
 import glob, os, shutil
-from a4py.utils.ascot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d, _plot_1d
+from ascot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d, _plot_1d
 
 col = ['k','r','b','m','g','c']
 col2=np.copy(col)
@@ -1211,8 +1211,7 @@ class output_1d:
         Drec= self.file.variables['N0V0_D'][:]
          
         tot_source = v_source+w_source+Drecy+Dflow+Dsflow+Dnrecy+Drec
-        if self.flag_beam==1: 
-            tot_source += first_fastn+CXfastn+halob
+        if self.flag_beam==1: tot_source += first_fastn+CXfastn+halob
         self.n0_tot = tot_source
 
 
@@ -1223,24 +1222,22 @@ class output_1d:
         wth= only thermal component of the energy
         wprp = perpendicular component of fast ion energy
         """
-        if self.flag_beam == 1:
-            pi  = np.multiply(self.kin_vars['ni']-self.nb_FKP_vars['n'],self.kin_vars['ti'])*1.602e-19*1.5
-            #wi  = np.multiply(self.file.variables['ND'][:,:]*1e6-self.nb_FKP_vars['n'],self.kin_vars['ti'])*1.602e-19*1.5
+        if self.flag_beam == 0:
+            wi  = np.multiply(self.kin_vars['ni']-self.nb_FKP_vars['n'],self.kin_vars['ti'])*1.602e-19*1.5
+            wi  = np.multiply(self.file.variables['ND'][:,:]*1e6-self.nb_FKP_vars['n'],self.kin_vars['ti'])*1.602e-19*1.5
         else:
-            pi  = np.multiply(self.kin_vars['ni'],self.kin_vars['ti'])*1.602e-19*1.5
-            #wi  = np.multiply(self.file.variables['ND'][:,:],self.kin_vars['ti'])*1.602e-19*1.5
+            wi  = np.multiply(self.kin_vars['ni'],self.kin_vars['ti'])*1.602e-19*1.5
+            wi  = np.multiply(self.file.variables['ND'][:,:],self.kin_vars['ti'])*1.602e-19*1.5
 
-        pe  = np.multiply(self.kin_vars['ne'],self.kin_vars['te'])*1.602e-19*1.5
-        #wim = np.multiply(self.imp_vars['nimp'],self.kin_vars['ti'])*1.602e-19*1.5
-        pth = pe+pi#+wim
-        
-        self.wth=np.zeros(len(self.t))
-        self.wtot=np.zeros(len(self.t))
-        self.wprp=np.zeros(len(self.t))
+        we  = np.multiply(self.kin_vars['ne'],self.kin_vars['te'])*1.602e-19*1.5
+        wim = np.multiply(self.imp_vars['nimp'],self.kin_vars['ti'])*1.602e-19*1.5
+        wth = we+wi+wim
+
+        self.wth=np.zeros(len(self.t)); self.wtot=np.copy(self.wth); self.wprp=np.copy(self.wth)
         for i in range(len(self.t)):
-            self.wth[i]  = np.dot(pth[i,:], self.dvol[i,:])
+            self.wth[i]  = np.dot(wth[i], self.dvol[i,:])
             if self.flag_beam==1:
-                self.wprp[i] = 1.5*np.dot(self.file.variables['UBPRP'][i,:]*1e6, self.dvol[i,:])
+                self.wprp[i] = np.dot(self.file.variables['UBPRP'][i]*1e6, self.dvol[i,:])
             else:
                 self.wprp[i]=0.
         self.wtot=self.wth+self.wprp

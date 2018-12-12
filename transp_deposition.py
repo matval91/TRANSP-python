@@ -5,6 +5,7 @@ Created on Fri Jan 12 13:43:58 2018
 
 @author: vallar
 """
+from __future__ import print_function
 import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
@@ -230,13 +231,13 @@ class absorption_time:
         file_list = glob.glob('*_birth.cdf*') # Get all the cdf in the current directory
         self.nslices=len(file_list)        
         self.timeslices = np.array([absorption for _ in range(self.nslices)])
-        print "Number of timeslices: ", str(self.nslices)
+        print("Number of timeslices: ", str(self.nslices))
         
         
         for i in range(self.nslices):
             fname = runid+'_birth.cdf'+str(i+1)
             self.nslices += 1
-            print fname
+            print(fname)
             tmp = absorption(fname)
             self.timeslices[i] = tmp
         self.R_w, self.z_w = \
@@ -476,7 +477,7 @@ class fbm:
         """
         Converts from MC grid to R,Z common grid
         """
-        print "Converting from MC grid to (R,Z)"
+        print("Converting from MC grid to (R,Z)")
         x,y=self.dict_dim_MCgrid['R'], self.dict_dim_MCgrid['z']
         
         self.dict_dim['R'] = np.linspace(min(x), max(x), num=self.nbins, dtype=float)
@@ -619,12 +620,12 @@ class fbm_time:
         file_list = glob.glob('*fi*.cdf') # Get all the cdf in the current directory
         self.nslices=len(file_list)        
         self.timeslices = np.array([fbm for _ in range(self.nslices)])
-        print "Number of timeslices: ", str(self.nslices)
+        print("Number of timeslices: ", str(self.nslices))
         
         
         for i in range(self.nslices):
             fname = runid+'_fi_'+str(i+1)+'.cdf'
-            print fname
+            print(fname)
             tmp = fbm(fname)
             self.timeslices[i] = tmp
 

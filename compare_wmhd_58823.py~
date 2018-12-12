@@ -1,0 +1,62 @@
+import transp_output
+import numpy as np
+import matplotlib.pyplot as plt
+from ascot_utils import common_style, limit_labels
+common_style()
+
+colors = ['r','b','g', 'c', 'm']
+shot=58823;
+#shot=58832
+if shot==58823:
+    fname1 = '/home/vallar/TCV/58823/58823V42.CDF' #TAUP=5ms
+    fname2 = '/home/vallar/TCV/58823/58823V43.CDF' #TAUP=5ms
+    fname3 = '/home/vallar/TCV/58823/58823V44.CDF' #TAUP=5ms
+    fname4 = '/home/vallar/TCV/58823/58823V45.CDF' #TAUP=5ms
+    fname5 = '/home/vallar/TCV/58823/58823V48.CDF' #TAUP=5ms
+
+    fnames = [fname1, fname2, fname3, fname4]#, fname5]
+    labels = [r'D=0   $m^2/s$, $z_{eff}$=1.8',\
+              r'D=0.5 $m^2/s$, $z_{eff}$=2',\
+              r'D=0.5 $m^2/s$, $z_{eff}$=3',\
+              ]
+    exp_fname_w = '/home/vallar/TCV/58823/58823wmhd.dat'
+    exp_fname_v = '/home/vallar/TCV/58823/58823vl.dat'
+
+wmhddata = np.loadtxt(exp_fname_w)
+
+#Filtering on the two times where the wmhd matches
+time1 =0.8
+
+
+f=plt.figure()
+ax=f.add_subplot(111)
+ax.plot(wmhddata[:,0], wmhddata[:,1]*1e-3, 'k', label='Exp.', lw=2.3)
+
+for i, fname in enumerate(fnames):
+    o=transp_output.output_1d(fname)
+    o._calculate_wmhd()
+    if '42' in fname:
+        it = np.logical_and(o.t<time1, o.t>0.8)
+        it = o.t>time1
+        wtot = o.wtot[it]
+        time = o.t[it]
+        label=labels[0]
+    elif '44' in fname:
+        wtot = o.wtot[o.t>time1]
+        time = o.t[o.t>time1]
+        label=labels[1]
+    elif '43' in fname:
+        wtot = o.wtot[o.t>time1]
+        time = o.t[o.t>time1]
+        label=labels[2]
+    else:
+        continue
+                        
+    ax.plot(time, wtot*1e-3, colors[i], label=label, lw=2.3)
+
+limit_labels(ax, r'Time (s)', r'W$_{MHD}$ [kJ]')
+ax.legend(loc='best', fontsize='medium')
+f.tight_layout()
+
+ax.grid('on')
+plt.show()

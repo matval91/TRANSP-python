@@ -5,45 +5,25 @@ Created on Fri Jan 12 13:43:58 2018
 
 @author: vallar
 """
+import utils.fdist_superclass as fdist_superclass
+
 import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import colors, interactive, ticker
 import math, collections
 import scipy.interpolate as interp
 import glob, os, shutil
-from utils.plot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d
 
-col = ['k','r','b','m','g','c']
-col2=np.copy(col)
-col2[0]='y'
 
-cdict = {'red': ((0., 1, 1),
-                 (0.05, 1, 1),
-                 (0.11, 0, 0),
-                 (0.66, 1, 1),
-                 (0.89, 1, 1),
-                 (1, 0.5, 0.5)),
-         'green': ((0., 1, 1),
-                   (0.05, 1, 1),
-                   (0.11, 0, 0),
-                   (0.375, 1, 1),
-                   (0.64, 1, 1),
-                   (0.91, 0, 0),
-                   (1, 0, 0)),
-         'blue': ((0., 1, 1),
-                  (0.05, 1, 1),
-                  (0.11, 1, 1),
-                  (0.34, 1, 1),
-                  (0.65, 0, 0),
-                  (1, 0, 0))}
-my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
-class fbm:
+class transp_fbm(fdist_superclass):
     """
     Manages the (tricky) output file for fbms from transp
     w3.pppl.gov/~pshare/transp/fbm.doc  
     """
     def __init__(self, infile_n):
+        fdist_superclass.__init__(self, infile_n)     
+    
+    def __read(self):
         """
         R2D: X of MC zones
         Z2D: Z of MC zones
@@ -58,15 +38,14 @@ class fbm:
         over the spherical angle)
         
         """
-        self.infile_n = infile_n
-        self.infile = nc.Dataset(infile_n)
+        self.infile = nc.Dataset(self.fname)
         self._read_info()        
         
         self.nbins=100        
         
         self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('pitch',[]),('E',[])])
         self.name_dim = {'R':'R2D', 'z':'Z2D', 'pitch':'A_D_NBI', 'E':'E_D_NBI'}
-        self._read_dim()
+        self._read_dim_netcdf()
         self.dict_dim['R'] *= 0.01
         self.dict_dim['z'] *= 0.01
         self.dict_dim_MCgrid = dict.copy(self.dict_dim)
@@ -78,7 +57,7 @@ class fbm:
         self.fdist_notnorm = np.zeros((self.shape_dim['E'], self.shape_dim['pitch'], \
                     self.nbins, self.nbins), dtype=float)        
         self._RZgrid()
-        self.norm=1.
+
         self._computenorm()    
         self.fdist_norm = self.fdist_notnorm/self.norm
         self._readwall()
@@ -126,118 +105,15 @@ class fbm:
         self.time  = round(self.infile.variables['TIME'][:], 3)
         self.shot = self.runid[0:5]
         
+    def _make_2d_fdist(self, x,y,z):
+        """
+        Converts from MC irregular grid to 2D grid of distribution function
+        """
+        nbin_compl=complex(0,self.nbins)
+        grid_x, grid_y = np.mgrid[min(x):max(x):nbin_compl, min(y):max(y):nbin_compl]
+        grid_z = interp.griddata((x,y), z, (grid_x, grid_y), method='cubic', fill_value=0.)        
+        return grid_z
         
-    def _read_dim(self):
-        """
-        Hidden method to read the abscissae
-        """
-        self.shape_dim = self.dict_dim.copy()
-        for i, dim in enumerate(self.dict_dim.iterkeys()):
-            self.dict_dim[dim] = self.infile.variables[self.name_dim[dim]][:]
-            self.shape_dim[dim] = np.size(self.dict_dim[dim])
-
-    def _integrate_spacex(self, x, ax):
-        """
-        Hidden method to integrate over space and something else (pitch, E, mu...)
-        """
-        try:
-            self.f_space_int.mean()
-        except:
-            self._integrate_space()
-        return np.trapz(self.f_space_int, self.dict_dim[x], axis=ax)    
-            
-    def _integrate_space(self):
-        """
-        Function to integrate over (R,z)
-        """
-        dist_toint = self.fdist_notnorm[:,:,:,:]
-
-        for i, el in enumerate(self.dict_dim['R']):
-            dist_toint[:,:,:,i] *= 2*math.pi*el
-
-        int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
-        int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-        self.f_space_int = int_Rz #pitch,E, normalized           
-
-
-    def _RZgrid(self):
-        """
-        Converts from MC grid to R,Z common grid
-        """
-        print("Converting from MC grid to (R,Z)")
-        x,y=self.dict_dim_MCgrid['R'], self.dict_dim_MCgrid['z']
-        
-        self.dict_dim['R'] = np.linspace(min(x), max(x), num=self.nbins, dtype=float)
-        self.dict_dim['z'] = np.linspace(min(y), max(y), num=self.nbins, dtype=float)
-        
-        for i in range(self.shape_dim['pitch']):
-            for j in range(self.shape_dim['E']):
-                z = self._make_2d_fdist(self.dict_dim_MCgrid['R'], \
-                                self.dict_dim_MCgrid['z'], self.fdist_MCgrid[:,i,j]) 
-                self.fdist_notnorm[j,i,:,:] = z
-             
-    def _integrate_spacep(self):
-        """
-        hidden method to integrate over (space,pitch)
-        """
-        self.f_spacep_int = self._integrate_spacex('pitch', ax=1)        
-
-    def _integrate_spaceE(self):
-        """
-        hidden method to integrate over (space,pitch)
-        """
-        self.f_spaceE_int = self._integrate_spacex('E', ax=0)    
-
-
-    def _integrate_Ep(self):
-        """
-        Hidden method to integrate over (E,p)
-        """
-        dist_toint = self.fdist_notnorm/self.norm
-            
-        int_E = np.trapz(dist_toint, self.dict_dim['E'], axis=0)
-        self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
-
-    def plot_spaceE(self, norm):
-        """
-        plot 1D (pitch, int_space (int_E (fdist)))
-        """
-        try:
-            self.f_spaceE_int.mean()
-        except:
-            self._integrate_spaceE()
-        
-        self.xplot = self.dict_dim['pitch']
-        self.yplot = self.f_spaceE_int
-
-        self._plot_1d('pitch', norm=norm)
-        
-    def plot_spacep(self, norm):
-        """
-        plot 1D (energy, int_space (int_pitch (fdist)))
-        """
-        try:
-            self.f_spacep_int.mean()
-        except:
-            self._integrate_spacep()
-        
-        self.xplot = self.dict_dim['E']
-        self.yplot = self.f_spacep_int
-            
-        self._plot_1d('Energy', norm=norm)
-
-    def plot_Epitch(self):
-        """
-        plot 2D (pitch, energy, int_space(fdist))
-        """
-        try:
-            self.f_space_int.mean()
-        except:
-            self._integrate_space()
-        x,y = self.dict_dim['pitch'], self.dict_dim['E']
-        title = self.runid + ' ' + str(self.time)
-        self._plot_2d(x,y, self.f_space_int, r'$\xi$', r'E [eV]', title)
-
     def plot_space(self):
         """
         """
@@ -249,54 +125,6 @@ class fbm:
         title = self.runid + ' ' + str(self.time)
         self._plot_2d(x,y, self.f_Ep_int.T, r'R [m]', r'z [m]', title, \
                     wall=[self.R_w, self.z_w], surf=[self.rsurf, self.zsurf])
-
-
-    def _make_2d_fdist(self, x,y,z):
-        """
-        Converts from MC irregular grid to 2D grid of distribution function
-        """
-        nbin_compl=complex(0,self.nbins)
-        grid_x, grid_y = np.mgrid[min(x):max(x):nbin_compl, min(y):max(y):nbin_compl]
-        grid_z = interp.griddata((x,y), z, (grid_x, grid_y), method='cubic', fill_value=0.)        
-        return grid_z
-
-
-    def _plot_1d(self, xlab, norm):
-        """
-        Hidden method to plot 1D functions
-        """
-
-        fig = plt.figure()
-        ax  = fig.add_subplot(111)
-        title = 'Distribution '
-        if norm==1:
-            self.yplot = self.yplot/self.norm
-            title += ' NORM'
-        ax.plot(self.xplot, self.yplot, linewidth=2.3)
-
-        ax.set_xlabel(xlab)
-        ax.set_title(title)
-        
-        plt.show()
-        
-    def _plot_2d(self,x,y,z, xlabel, ylabel, title, **kwargs):
-        """
-        """        
-        fig = plt.figure()
-        ax = fig.gca()
-        if "wall" in kwargs:
-            r,zt = kwargs['wall'][0], kwargs['wall'][1]
-            ax.plot(r,zt, 'k', lw=2.5)
-        if "surf" in kwargs:
-            r,zt = kwargs['surf'][0], kwargs['surf'][1]
-            ind=np.linspace(0, np.shape(r)[0]-1, 5)            
-            for i in ind:
-                plt.plot(r[i,:], zt[i,:], 'k', lw=1.1)
-        CS = ax.contourf(x,y,z, 20,  cmap=my_cmap)
-        plt.colorbar(CS)
-        ax.set_xlabel(xlabel), ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        plt.show()
         
 class fbm_time:
     """
