@@ -43,9 +43,14 @@ def scale_taup(fname='/home/vallar/TCV/58823/58823V68.CDF', \
     o._calculate_n0()
     tsim, n0sim = o.t, o.n0_tot[:,-1]*1e6
 
+    plt.plot(tsim, n0sim)
+    plt.plot(_texp, _n0exp)
+    
+
     param_exp = interp.interp1d(_texp, _n0exp)
     time = tsim[tsim<2.]
     n0exp = param_exp(time)
+    
 
     factor = n0exp/n0sim
     taunew = taup/factor*1e-3 #converts to seconds
@@ -53,10 +58,12 @@ def scale_taup(fname='/home/vallar/TCV/58823/58823V68.CDF', \
     f=plt.figure(); ax=f.add_subplot(111)
     ax.plot(time, n0exp, 'k--', label='EXP')
     ax.plot(time, n0sim, 'r-', label='SIM')
+    ax.legend(loc='best')
     f=plt.figure(); ax=f.add_subplot(111)
-    ax.plot(time, taunew, 'k-')
-    ax.plot([min(time), max(time)], [taup*1e-3, taup*1e-3], 'r-')
-    
+    ax.plot(time, taunew, 'k-', label='new taup')
+    ax.plot([min(time), max(time)], [taup*1e-3, taup*1e-3], 'r-', label='TAUPH set')
+    ax.legend(loc='best')
+   
 
     uf_d = {'pre': 'OMF',
             'ext': 'TPI',

@@ -10,9 +10,9 @@ from __future__ import print_function
 import numpy as np
 
 from pytransp.classes.transp_output import transp_output
-import pytransp.utils.transp_utils as tu
+import pytransp.trutils.transp_utils as tu
 
-import pytransp.utils.plot_utils as au
+import utils.plot_utils as au
 import pytransp.plot.plot_nb as plot_nb
 
 class transp_heating(transp_output):
@@ -170,20 +170,19 @@ class transp_heating(transp_output):
         ne = self.kin_vars['ne']; Te = self.kin_vars['te']
         Ec = self.Ec; E0_arr = self.nb_in_vars['E']
         lnlambda=17.
-        self.taus = np.zeros((self.nt, len(self.rho)) , dtype=float)
+        self.taus = np.zeros((self.nt, len(self.rho[0,:])) , dtype=float)
         self.taus_mean = np.zeros(self.nt, dtype=float)
         
         if np.mean(ne)/1e18 >1:
             ne = ne*1e-6
         else:
             ne=ne
-            
+
         for it in range(self.nt):
             ts=6.27e8*A[0]*np.divide(np.power(Te[it,:],1.5),(1.*lnlambda*ne[it,:]))
-            E0=np.transpose(np.tile(E0_arr[it], (len(self.rho), 1)))
-            taus=ts/3.*np.log((1+(E0/Ec[it,:])**1.5))
+            taus=ts/3.*np.log((1+(E0_arr[it]/Ec[it,:])**1.5))           
             self.taus[it,:] = taus
-            self.taus_mean[it] = np.trapz(taus, self.rho)
+            self.taus_mean[it] = np.dot(taus, self.dvol[it,:])/np.sum(self.dvol[it,:])
 
         
     def _calculate_gi(self):

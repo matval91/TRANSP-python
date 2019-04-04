@@ -11,8 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from pytransp.classes.transp_heating import transp_heating
-import pytransp.utils.transp_utils as tu
-import pytransp.utils.plot_utils as au
+import pytransp.trutils.transp_utils as tu
+import utils.plot_utils as au
 
 class transp_exp(transp_heating):
     """Class for 1d output
@@ -163,17 +163,17 @@ class transp_exp(transp_heating):
         """   
         v_source = self.file.variables['DN0VD'][:]
         w_source = self.file.variables['DN0WD'][:]
-        Drecy = self.file.variables['N0RC_D_D'][:]
-        Dflow= self.file.variables['N0GF_D_D'][:]
-        Dsflow= self.file.variables['N0SGF_D'][:]
-        Dnrecy= self.file.variables['N0SRC_D'][:]
-        Drec= self.file.variables['N0V0_D'][:]
-        
-        CXfastn = self.file.variables['N0BCXD0'][:]
-        first_fastn = self.file.variables['N0BD0'][:]
-        halob = self.file.variables['N0BH_D'][:]
-        n0fast = first_fastn+CXfastn+halob
-        tot_source = v_source+w_source+Drecy+Dflow+Dsflow+Dnrecy+Drec
+#        Drecy = self.file.variables['N0RC_D_D'][:]
+#        Dflow= self.file.variables['N0GF_D_D'][:]
+#        Dsflow= self.file.variables['N0SGF_D'][:]
+#        Dnrecy= self.file.variables['N0SRC_D'][:]
+#        Drec= self.file.variables['N0V0_D'][:]
+#        
+#        CXfastn = self.file.variables['N0BCXD0'][:]
+#        first_fastn = self.file.variables['N0BD0'][:]
+#        halob = self.file.variables['N0BH_D'][:]
+#        n0fast = first_fastn+CXfastn+halob
+        tot_source = v_source+w_source#+Drecy+Dflow+Dsflow+Dnrecy+Drec
         #tot_source += n0fast
         
         self.n0_tot = tot_source

@@ -7,7 +7,7 @@ from __future__ import print_function
 
 import netCDF4 as nc
 import numpy as np
-import pytransp.utils.transp_utils as tu
+import pytransp.trutils.transp_utils as tu
 import pytransp.plot.plot_input as plot_input
 
 class transp_output:
@@ -203,14 +203,14 @@ class transp_output:
         self.ni_vavg = np.zeros(self.nt, dtype=float)
         self.Te_vavg = np.zeros(self.nt, dtype=float)
         self.Ti_vavg = np.zeros(self.nt, dtype=float)
-        
+        self.ip      = np.zeros(self.nt, dtype=float)
         for i in range(self.nt):
-            dvol = self.dvol[i,:]
+            dvol = self.dvol[i,:]; darea=self.darea[i,:]
             self.ne_vavg[i] = np.dot(self.kin_vars['ne'][i,:],dvol)/np.sum(dvol)
             self.ni_vavg[i] = np.dot(self.kin_vars['ni'][i,:],dvol)/np.sum(dvol)
             self.Te_vavg[i] = np.dot(self.kin_vars['te'][i,:],dvol)/np.sum(dvol)
             self.Ti_vavg[i] = np.dot(self.kin_vars['ti'][i,:],dvol)/np.sum(dvol)
-
+            self.ip[i]      = np.dot(self.file.variables['CUR'][i,:]*1e4, darea)
         self.ne_mean = np.mean(self.ne_vavg)
         self.ni_mean = np.mean(self.ni_vavg)
         self.Te_mean = np.mean(self.Te_vavg)

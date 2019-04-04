@@ -5,8 +5,8 @@ Created on Fri Jan 12 13:43:58 2018
 
 @author: vallar
 """
-import utils.fdist_superclass as fdist_superclass
-
+import utils.fdist_superclass as f_superclass
+from utils.plot_utils import _plot_2d
 import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,15 +15,15 @@ import scipy.interpolate as interp
 import glob, os, shutil
 
 
-class transp_fbm(fdist_superclass):
+class transp_fbm(f_superclass.fdist_superclass):
     """
     Manages the (tricky) output file for fbms from transp
     w3.pppl.gov/~pshare/transp/fbm.doc  
-    """
-    def __init__(self, infile_n):
-        fdist_superclass.__init__(self, infile_n)     
-    
-    def __read(self):
+    """  
+    def __init__(self, fname):
+        super().__init__(fname)
+
+    def _read(self):
         """
         R2D: X of MC zones
         Z2D: Z of MC zones
@@ -66,7 +66,22 @@ class transp_fbm(fdist_superclass):
         self.rsurf *= 0.01
         self.zsurf *= 0.01
         
+    def _RZgrid(self):
+        """
+        Converts from MC grid to R,Z common grid
+        """
+        print("Converting from MC grid to (R,Z)")
+        x,y=self.dict_dim_MCgrid['R'], self.dict_dim_MCgrid['z']
         
+        self.dict_dim['R'] = np.linspace(min(x), max(x), num=self.nbins, dtype=float)
+        self.dict_dim['z'] = np.linspace(min(y), max(y), num=self.nbins, dtype=float)
+        
+        for i in range(self.shape_dim['pitch']):
+            for j in range(self.shape_dim['E']):
+                z = self._make_2d_fdist(self.dict_dim_MCgrid['R'], \
+                                self.dict_dim_MCgrid['z'], self.fdist_MCgrid[:,i,j]) 
+                self.fdist_notnorm[j,i,:,:] = z
+
     def _computenorm(self):
         """
         calculates the norm of the function
@@ -75,11 +90,11 @@ class transp_fbm(fdist_superclass):
             try:
                 self.f_spacep_int()
             except:
-                self._integrate_spacep()
+                super()._integrate_spacep()
                 
-            self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
-            self.norm=1.
-            #print "NORM = ", self.norm
+        self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+        self.norm=1.
+        #print "NORM = ", self.norm
 
     def _readwall(self):
         """
@@ -98,11 +113,11 @@ class transp_fbm(fdist_superclass):
         self.tok = ''        
         runid = self.infile.variables['TRANSP_RUNID'][:]
         for i in runid:
-            self.runid += i
+            self.runid += i.decode('UTF-8')
         tok   = self.infile.variables['TOKAMAK'][:]
         for i in tok:
-            self.tok += i
-        self.time  = round(self.infile.variables['TIME'][:], 3)
+            self.tok += i.decode('UTF-8')
+        self.time  = np.round(self.infile.variables['TIME'][:], 3)
         self.shot = self.runid[0:5]
         
     def _make_2d_fdist(self, x,y,z):
@@ -123,8 +138,8 @@ class transp_fbm(fdist_superclass):
             self._integrate_Ep()
         x,y = self.dict_dim['R'], self.dict_dim['z']
         title = self.runid + ' ' + str(self.time)
-        self._plot_2d(x,y, self.f_Ep_int.T, r'R [m]', r'z [m]', title, \
-                    wall=[self.R_w, self.z_w], surf=[self.rsurf, self.zsurf])
+        _plot_2d(x,y, r'R [m]', r'z [m]',self.f_Ep_int.data.T, title, \
+                    wallrz=[self.R_w, self.z_w], surf=[self.rsurf, self.zsurf])
         
 class fbm_time:
     """

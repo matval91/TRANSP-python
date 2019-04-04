@@ -1,6 +1,6 @@
-import a4py.utils.ascot_utils as au
+import utils.plot_utils as au
 import matplotlib.pyplot as plt
-import pytransp.utils.transp_utils as tu
+import pytransp.trutils.transp_utils as tu
 col, col2, styles, my_cmap, dpi = au.define_colors()
 
 def plot_input(to, time):

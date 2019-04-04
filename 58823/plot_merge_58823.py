@@ -86,11 +86,13 @@ axabs = f.add_subplot(121)
 _cumulative_plot(t,ypbalance,labels, xlabel, ylabel, col2, ax=axabs, title='')
 
 axfrac = f.add_subplot(122)
+#axfrac = f.add_subplot(111)
+
 for i in range(4):
     axfrac.plot(t, yfbalance[i,:]*100., color=col2[i], lw=2.3, label=labels[i])
 axfrac.set_ylim([0,60])
 axfrac.legend(loc='best', fontsize='medium')
-axabs.grid('on')
+#axabs.grid('on')
 axfrac.grid('on')
 f.subplots_adjust(right=0.8)        
 f.tight_layout()
@@ -99,8 +101,9 @@ f.tight_layout()
 # Power gi, ge
 ###################
 f = plt.figure(figsize=(10, 8))
-axp = f.add_subplot(211)
-axf = f.add_subplot(212, sharex=axp)
+axp = f.add_subplot(111)
+f=plt.figure()
+axf = f.add_subplot(111, sharex=axp)
 _plot_1d(t, pe*1e-3, ax=axp, color='k', label=r'e')
 _plot_1d(t, pi*1e-3, ax=axp, color='r', label=r'i')
 _plot_1d(t, pe/(pe+pi)*100., ax=axf, color='k', label=r'e')

@@ -13,7 +13,7 @@ from matplotlib import colors, interactive
 import math, collections
 import scipy.interpolate as interp
 import glob, os, shutil
-from ascot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d
+from utils.plot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d
 
 col = ['k','r','b','m','g','c']
 col2=np.copy(col)
@@ -172,7 +172,7 @@ class absorption:
         ylab = 'z [m]'
         wallrz= [self.R_w, self.z_w]
         #surf=[self.Rsurf, self.zsurf, self.RZsurf]
-        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id='', title='RZ ionization',\
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, title='RZ ionization',\
                  wallrz=wallrz, xlim=[0.6, 1.1], scatter=1)
         
     def plot_XYpart(self):
