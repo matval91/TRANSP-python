@@ -1,8 +1,0 @@
-import transp_output
-import numpy as np
-import matplotlib.pyplot as plt
-
-fname='/home/vallar/TCV/58823/58823O06.CDF'
-
-n0data = np.loadtxt('/home/vallar/TCV/58823/58823n0.dat')
-o=transp_output.output_1d(fname)
