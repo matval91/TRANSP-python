@@ -58,11 +58,15 @@ class transp_heating(transp_output):
             If two D beams are present, usually the first is the heating beam
 
         """
-        keys     = ['P', 'E']
+        keys     = ['P_D', 'E_D']
         varnames = ['PBINJ_D', 'EINJAV_D' ]
+      
+        if 'PBINJ_H' in self.file.variables.keys():
+            keys.append('P_H')
+            varnames.append('PBSHINE_H')
         self.nb_in_names, self.nb_in_vars = \
-            tu._fill_dict(self.file, keys, varnames)        
-        self.inj_index = np.where(self.nb_in_vars['P']>0.9*np.max(self.nb_in_vars['P']>0.9))[0]
+            tu._fill_dict(self.file, keys, varnames)              
+        self.inj_index = np.where(self.nb_in_vars['P_D']>0.9*np.max(self.nb_in_vars['P_D']))[0]
 
         keys     = ['st']
         varnames = ['PBSHINE_D']
@@ -168,7 +172,7 @@ class transp_heating(transp_output):
 
         A = [2, self.imp_vars['A'].mean()]
         ne = self.kin_vars['ne']; Te = self.kin_vars['te']
-        Ec = self.Ec; E0_arr = self.nb_in_vars['E']
+        Ec = self.Ec; E0_arr = self.nb_in_vars['E_D']
         lnlambda=17.
         self.taus = np.zeros((self.nt, len(self.rho[0,:])) , dtype=float)
         self.taus_mean = np.zeros(self.nt, dtype=float)
@@ -204,7 +208,7 @@ class transp_heating(transp_output):
         except:
             self._calculate_Ec()
         
-        Ec = self.Ec; E0 = self.nb_in_vars['E']
+        Ec = self.Ec; E0 = self.nb_in_vars['E_D']
         self.gi = np.zeros(np.shape(Ec), dtype=float)
         self.gi_vavg = np.zeros(self.nt, dtype=float)
         for time_ind in range(np.shape(Ec)[0]):
@@ -265,7 +269,7 @@ class transp_heating(transp_output):
         self.psh_mean = np.mean(self.psh[ind])
         self.pcx_mean = np.mean(self.pcx[ind])
         self.pol_mean = np.mean(self.pol[ind])
-        self.pin_mean = np.mean(self.nb_in_vars['P'][ind])
+        self.pin_mean = np.mean(self.nb_in_vars['P_D'][ind])
         self.pi_mean  = np.mean(self.pi[ind])
         self.pe_mean  = np.mean(self.pe[ind])
         self.pth_mean = np.mean(self.pth[ind])
@@ -283,10 +287,10 @@ class transp_heating(transp_output):
             None    
         Note:
         """            
-        pbal = np.mean(self.nb_in_vars['P']-self.psh - \
+        pbal = np.mean(self.nb_in_vars['P_D']-self.psh - \
             self.pe-self.pi-self.pth-self.pol-self.pcx)*1e-6
         print("Power not counted anywhere:", pbal)
-        print("Pbalance/Pin ", pbal/np.mean(self.nb_in_vars['P'])*1e6)
+        print("Pbalance/Pin ", pbal/np.mean(self.nb_in_vars['P_D'])*1e6)
         print("psh+pol ", np.mean(self.pol+self.psh)*1e-6)
         print("pe+pi+pth ", np.mean(self.pe+self.pi+self.pth)*1e-6)
         print("pcx " , np.mean(self.pcxprof)*1e-6)
@@ -309,7 +313,7 @@ class transp_heating(transp_output):
         except:
             self._calculate_scalars()         
         #Computing the power coupled to plasma: Pini-Pend+Pres
-        P = self.nb_in_vars['P']
+        P = self.nb_in_vars['P_D']
         #ind = P>0.
         R0 = self.file.variables['RAXIS'][:]*0.01
         # average density in 10^20
@@ -383,7 +387,7 @@ class transp_heating(transp_output):
         x = self.t
         y = np.array([(self.pi+self.pe+self.pth)*1e-6, self.pcx*1e-6, self.pol*1e-6, self.psh*1e-6])
         yH = np.array([(self.Hpi+self.Hpe+self.Hpth)*1e-6, self.pcx*1e-6, self.pol*1e-6, self.psh*1e-6])
-        pin = self.nb_in_vars['P']
+        pin = self.nb_in_vars['P_D']
         yfrac = y/pin*1e6
         return x,y,yH,yfrac
     
