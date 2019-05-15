@@ -18,7 +18,7 @@ def summary_plot(fname_sim=['/home/vallar/TCV/58823/58823V71.CDF'], t=0.):
 
     ncol=4; nrow=3
     f, ax = plt.subplots(nrow, ncol, figsize=[4*ncol,3*nrow])
-
+    objs=[]
     for i, fname in enumerate(fname_sim):
         try:
             if fname[-4:]!='.CDF': fname+='.CDF'
@@ -26,6 +26,7 @@ def summary_plot(fname_sim=['/home/vallar/TCV/58823/58823V71.CDF'], t=0.):
         except:
             print('No fname '+fname)
             continue
+        objs=np.append(objs,o)
         if t==0.:
             ind = int(np.size(o.t)/2)
         else:
@@ -42,10 +43,13 @@ def summary_plot(fname_sim=['/home/vallar/TCV/58823/58823V71.CDF'], t=0.):
         ax[1,0].set_xlabel(r'$\rho$'); ax[1,0].set_ylabel(r'q')
         ax[1,0].legend(loc='best')
         
-        ax[0,1].plot(o.rho[ind,:], o.kin_vars['ne'][ind,:], col[i], lw=2.3);
-        ax[0,1].set_xlabel(r'$\rho$'); ax[0,1].set_ylabel(r'$n_e (m^{-3})$')    
+        ax[0,1].plot(o.rho[ind,:], o.kin_vars['ne'][ind,:], col[i], lw=2.3, label='el.');
+        ax[0,1].plot(o.rho[ind,:], o.kin_vars['ni'][ind,:], col[i], lw=2.3, ls='--', label='ions');
+        ax[0,1].set_xlabel(r'$\rho$'); ax[0,1].set_ylabel(r'$n (m^{-3})$')    
 
-        ax[1,1].plot(o.rho[ind,:], o.kin_vars['te'][ind,:]*1e-3, col[i], lw=2.3);
+
+        ax[1,1].plot(o.rho[ind,:], o.kin_vars['te'][ind,:]*1e-3, col[i], lw=2.3, label='el.');
+        ax[1,1].plot(o.rho[ind,:], o.kin_vars['ti'][ind,:]*1e-3, col[i], lw=2.3, ls='--', label='ions');
         ax[1,1].set_xlabel(r'$\rho$'); ax[1,1].set_ylabel(r'$T_e (keV)$') 
 
         ax[0,2].plot(o.rho[ind,:], o.nb_FKP_vars['n'][ind,:], col[i], lw=2.3);
@@ -83,4 +87,5 @@ def summary_plot(fname_sim=['/home/vallar/TCV/58823/58823V71.CDF'], t=0.):
             el2.grid('on')
     f.tight_layout()
     plt.show()
-    return f,ax
+
+    return objs,f,ax

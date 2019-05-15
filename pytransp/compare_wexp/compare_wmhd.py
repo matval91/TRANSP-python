@@ -23,7 +23,7 @@ def compare_wmhd(fname_sim=['/home/vallar/TCV/58823/58823V71.CDF'], fname_exp_w=
     
     f=plt.figure()
     ax=f.add_subplot(111)
-    ax.plot(wmhddata[:,0], wmhddata[:,1]*1e-3, 'm--', label='EXP')
+    ax.plot(wmhddata[:,0], wmhddata[:,1]*1e-3-offset, 'm--', label='EXP')
     wmhd_exp = {}; wmhd_exp['t']=wmhddata[:,0]; wmhd_exp['wmhd']=wmhddata[:,1]
     wmhd_sim = {};
     for i, fname in enumerate(fname_sim):
