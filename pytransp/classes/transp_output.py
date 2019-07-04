@@ -9,6 +9,7 @@ import netCDF4 as nc
 import numpy as np
 import pytransp.trutils.transp_utils as tu
 import pytransp.plot.plot_input as plot_input
+import pytransp.plot.plot_eq as plot_eq
 
 class transp_output:
     """Class for 1d output
@@ -53,7 +54,6 @@ class transp_output:
         self._global_vars()
         self._imp_vars()
         self._kinetic_vars()
-        self._performance_vars()
 
     def _calculate_all(self):
         """first computations
@@ -125,67 +125,7 @@ class transp_output:
             tu._fill_dict(self.file, keys, varnames)
         self.kin_vars['ne'] *= 1e6
         self.kin_vars['ni'] *= 1e6
-      
-    def _performance_vars(self):
-        """
-        Gathers performance variables (jbootstrap, beta, li) from netcdf file
-        ), (u'CURBS', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBS(TIME3, X)
-            units: AMPS/CM2
-            long_name: BOOTSTRAP CURRENT
-        unlimited dimensions:
-        current shape = (101, 40)
-        filling off
-        ), (u'CURBSNEO', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBSNEO(TIME3, X)
-            units: AMPS/CM2
-            long_name: NEO-gk Bootstrap Current
-        unlimited dimensions:
-        current shape = (101, 40)
-        filling off
-        ), (u'CURBSWNC', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBSWNC(TIME3, X)
-            units: AMPS/CM2
-            long_name: NCLASS Bootstrap Current
-        unlimited dimensions:
-        current shape = (101, 40)
-        filling off
-        ), (u'CURBSEPS', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBSEPS(TIME3, X)
-            units: AMPS/CM2
-            long_name: Aspect Ratio Bootstrap Current
-        unlimited dimensions:
-        current shape = (101, 40)
-        filling off
-        ), (u'CURBSSAU', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBSSAU(TIME3, X)
-            units: AMPS/CM2
-            long_name: Sauter Bootstrap Current as Used
-        unlimited dimensions:
-        current shape = (101, 40)
-        filling off
-        ), (u'CURBSSAU0', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBSSAU0(TIME3, X)
-            units: AMPS/CM2
-            long_name: Sauter Bootstrap Current Original Form
-        unlimited dimensions:
-        current shape = (101, 40)
-        filling off
-        ), (u'CURBSSAU1', <type 'netCDF4._netCDF4.Variable'>
-        float32 CURBSSAU1(TIME3, X)
-            units: AMPS/CM2
-            long_name: Sauter Bootstrap Current CS Chang Form
-        unlimited dimensions:
-        current shape = (101, 40)
-        """        
-        keys     = ['jboot', 'jbootsau', 'jbootneogk', 'jbootneo', 'jbootsauor']
-        varnames = ['CURBS', 'CURBSSAU', 'CURBSNEO', 'CURBSWNC', 'CURBSSAU0']
-        self.perf_names = dict.fromkeys(keys)
-        self.perf_vars  = dict.fromkeys(keys)
-        self.perf_names, self.perf_vars = \
-            tu._fill_dict(self.file, keys, varnames)
-        for el in self.perf_vars:
-            self.perf_vars[el] *= 1e4
+
 
     def _average_kin(self):
         """ Average of kin. vars
@@ -231,3 +171,31 @@ class transp_output:
         """
         """
         plot_input.plot_input_prof(self, time)
+
+
+    def _gather_equilibrium(self):
+        """get data for eq
+        
+        Stores data coming from equilibrium, i.e.
+        j, F, p, q, psi, phi
+        
+        """
+        keys     = ['j', 'joh', 'jbs', 'p', 'pth', 'pnth', 'pol_flux', 'tor_flux', 'q']
+        varnames = ['CUR', 'CUROH', 'CURBS', 'PMHD_IN', 'PMHDT_IN', 'PMHDF_IN', 'PLFLX', 'TRFLX','Q']
+        self.eq_names = dict.fromkeys(keys)
+        self.eq_vars  = dict.fromkeys(keys)
+        self.eq_names, self.eq_vars = \
+            tu._fill_dict(self.file, keys, varnames)
+        self.eq_vars['j']*=1e4
+        self.eq_vars['joh']*=1e4
+        self.eq_vars['jbs']*=1e4
+        
+        
+    def plot_equilibrium(self, time=[0],f=0):
+        """
+        """
+        try:
+            self.eq_vars['j'].mean()
+        except:
+            self._gather_equilibrium()
+        plot_eq.plot_eq(self, time,f)

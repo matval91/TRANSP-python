@@ -5,7 +5,7 @@ Created on Fri Jan 12 13:43:58 2018
 
 @author: vallar
 """
-import utils.fdist_superclass as f_superclass
+from utils.fdist_superclass import fdist_superclass
 from utils.plot_utils import _plot_2d
 import netCDF4 as nc
 import numpy as np
@@ -15,13 +15,13 @@ import scipy.interpolate as interp
 import glob, os, shutil
 
 
-class transp_fbm(f_superclass.fdist_superclass):
+class transp_fbm(fdist_superclass):
     """
     Manages the (tricky) output file for fbms from transp
     w3.pppl.gov/~pshare/transp/fbm.doc  
     """  
     def __init__(self, fname):
-        super().__init__(fname)
+        fdist_superclass.__init__(self, fname)
 
     def _read(self):
         """
@@ -90,7 +90,7 @@ class transp_fbm(f_superclass.fdist_superclass):
             try:
                 self.f_spacep_int()
             except:
-                super()._integrate_spacep()
+                self._integrate_spacep()
                 
         self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
         self.norm=1.
@@ -100,7 +100,7 @@ class transp_fbm(f_superclass.fdist_superclass):
         """
         Hidden method to read the wall
         """
-        in_w_fname='/home/vallar/TCV/TCV_vessel_coord.dat'
+        in_w_fname='/home/vallar/TCV_wall/TCV_vessel_coord.dat'
         wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
 
         self.R_w = np.array(wall[0,:])

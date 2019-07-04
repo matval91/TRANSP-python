@@ -42,13 +42,9 @@ def scale_taup(fname='/home/vallar/TCV/58823/58823V68.CDF', \
     o=te.transp_exp(fname)
     o._calculate_n0()
     tsim, n0sim = o.t, o.n0_tot[:,-1]*1e6
-
-    plt.plot(tsim, n0sim)
-    plt.plot(_texp, _n0exp)
     
-
     param_exp = interp.interp1d(_texp, _n0exp)
-    time = tsim[tsim<2.]
+    time = tsim[np.where(tsim<2.)[0]].data
     n0exp = param_exp(time)
     
 
@@ -58,16 +54,16 @@ def scale_taup(fname='/home/vallar/TCV/58823/58823V68.CDF', \
     f=plt.figure(); ax=f.add_subplot(111)
     ax.plot(time, n0exp, 'k--', label='EXP')
     ax.plot(time, n0sim, 'r-', label='SIM')
-    ax.legend(loc='best')
+    ax.legend(loc='best'); ax.grid('on')
     f=plt.figure(); ax=f.add_subplot(111)
     ax.plot(time, taunew, 'k-', label='new taup')
     ax.plot([min(time), max(time)], [taup*1e-3, taup*1e-3], 'r-', label='TAUPH set')
-    ax.legend(loc='best')
+    ax.legend(loc='best'); ax.grid('on')
    
 
     uf_d = {'pre': 'OMF',
             'ext': 'TPI',
-            'shot': 58823,
+            'shot': int(fname[-12:-7]),
             'grid': {'X': {'lbl': 'Time'+' '*19+'SEC'+' '*4,
                            'arr': time}},
                            'data': {'lbl': 'Confinement_time       SEC',

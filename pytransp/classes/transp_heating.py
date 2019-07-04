@@ -249,7 +249,7 @@ class transp_heating(transp_output):
 
         self.nbcd = np.zeros(self.nt, dtype=float)
         self.unbcd = np.zeros(self.nt, dtype=float)
-        self.jboot = np.zeros(self.nt, dtype=float)
+        #self.jboot = np.zeros(self.nt, dtype=float)
         self.shield = np.zeros(self.nt, dtype=float)        
 
         for i in range(self.nt):

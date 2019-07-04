@@ -38,6 +38,7 @@ class transp_exp(transp_heating):
         transp_heating.__init__(self,fname)
         self._calculate_n0()
         self._calculate_wmhd()
+        self._performance_vars()
 
     def _performance_vars(self):
         """
@@ -98,6 +99,10 @@ class transp_exp(transp_heating):
         self.perf_names, self.perf_vars = tu._fill_dict(self.file,keys, varnames)
         for el in self.perf_vars:
             self.perf_vars[el] *= 1e4
+        self.jboot=np.copy(self.t)
+        
+        for i,t in enumerate(self.t):
+            self.jboot[i]=np.dot(self.darea[i,:], self.perf_vars['jboot'][i,:])
 
     def n0_core(self):
         """ plot n0 at core
@@ -212,9 +217,11 @@ class transp_exp(transp_heating):
         wim = np.multiply(self.imp_vars['nimp'],self.kin_vars['ti'])*1.602e-19*1.5
         wth = we+wi+wim
 
-        self.wth=np.zeros(len(self.t)); self.wtot=np.copy(self.wth); self.wprp=np.copy(self.wth)
+        self.wth=np.zeros(len(self.t)); self.wtot=np.copy(self.wth); self.wprp=np.copy(self.wth); self.we=np.copy(self.wth); self.wi=np.copy(self.wth)
         for i in range(len(self.t)):
             self.wth[i]  = np.dot(wth[i], self.dvol[i,:])
+            self.we[i] = np.dot(we[i], self.dvol[i,:])
+            self.wi[i] = np.dot(wi[i], self.dvol[i,:])
             if self.flag_beam==1:
                 self.wprp[i] = np.dot(self.file.variables['UBPRP'][i]*1e6, self.dvol[i,:])
             
