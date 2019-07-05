@@ -75,6 +75,4 @@ def plot_eq(to, time=[0], f=0):
     except:
         f.suptitle('{} t={:.2f} s'.format(to.fname[-12:-4], time))
 
-        
-        
     plt.show()    
