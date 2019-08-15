@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pytransp.classes.transp_output as to
 import matplotlib
-
+import matplotlib.pyplot as plt
 matplotlib.interactive(True)
 
 if len(sys.argv)==1:

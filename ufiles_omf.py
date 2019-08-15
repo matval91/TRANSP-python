@@ -193,7 +193,8 @@ class RU:
             
             for var in self.vars:
                 if l.find('-# OF %s PTS-' %var) != -1:
-                    print((self.n, var, a))
+                    self.n[var] = int(a[0])
+                if l.find('-# OF PTS-') != -1:
                     self.n[var] = int(a[0])
                 if ';-# of radial pts  %s'%var in l:
                     self.n[var] = int(a[0])

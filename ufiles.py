@@ -201,7 +201,7 @@ class RU:
 
             if l.find('-DEPENDENT VARIABLE LABEL-') != -1: 
                 self.flabel = l.split(';-')[0][1: ]
-
+        print(self.vars)
 # === Data
         if self.dim != self.nvar:
             print(('Inconsistency in the number of independent variables dim=%i nvar=%i'%(self.dim, self.nvar)))
