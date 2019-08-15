@@ -180,8 +180,8 @@ class transp_output:
         j, F, p, q, psi, phi
         
         """
-        keys     = ['j', 'joh', 'jbs', 'p', 'pth', 'pnth', 'pol_flux', 'tor_flux', 'q']
-        varnames = ['CUR', 'CUROH', 'CURBS', 'PMHD_IN', 'PMHDT_IN', 'PMHDF_IN', 'PLFLX', 'TRFLX','Q']
+        keys     = ['j', 'joh', 'jbs', 'p', 'pth', 'pnth', 'pol_flux', 'tor_flux', 'q', 'f']
+        varnames = ['CUR', 'CUROH', 'CURBS', 'PMHD_IN', 'PMHDT_IN', 'PMHDF_IN', 'PLFLX', 'TRFLX','Q', 'BZXR']
         self.eq_names = dict.fromkeys(keys)
         self.eq_vars  = dict.fromkeys(keys)
         self.eq_names, self.eq_vars = \
@@ -189,7 +189,7 @@ class transp_output:
         self.eq_vars['j']*=1e4
         self.eq_vars['joh']*=1e4
         self.eq_vars['jbs']*=1e4
-        
+        self.eq_vars['f']*=1e-2
         
     def plot_equilibrium(self, time=[0],f=0):
         """

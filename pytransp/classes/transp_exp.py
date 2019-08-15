@@ -92,7 +92,7 @@ class transp_exp(transp_heating):
         unlimited dimensions:
         current shape = (101, 40)
         """        
-        keys     = ['jboot', 'jbootsau', 'jbootneogk', 'jbootneo', 'jbootsauor']
+        keys     = ['jboot_no', 'jboot', 'jbootneogk', 'jbootneo', 'jbootsauor']
         varnames = ['CURBS', 'CURBSSAU', 'CURBSNEO', 'CURBSWNC', 'CURBSSAU0']
         self.perf_names = dict.fromkeys(keys)
         self.perf_vars  = dict.fromkeys(keys)
