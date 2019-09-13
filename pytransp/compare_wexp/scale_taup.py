@@ -41,10 +41,10 @@ def scale_taup(fname='/home/vallar/TCV/58823/58823V68.CDF', \
 
     o=te.transp_exp(fname)
     o._calculate_n0()
-    tsim, n0sim = o.t, o.n0_tot[:,-1]*1e6
+    tsim, n0sim = o.t, o.n0_tot[:,-1]
     
     param_exp = interp.interp1d(_texp, _n0exp)
-    time = tsim[np.where(tsim<2.)[0]].data
+    time = tsim[np.where(tsim<2.)[0]][:]
     n0exp = param_exp(time)
     
 

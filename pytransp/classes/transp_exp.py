@@ -174,14 +174,14 @@ class transp_exp(transp_heating):
 #        Dnrecy= self.file.variables['N0SRC_D'][:]
 #        Drec= self.file.variables['N0V0_D'][:]
 #        
-#        CXfastn = self.file.variables['N0BCXD0'][:]
-#        first_fastn = self.file.variables['N0BD0'][:]
+        CXfastn = self.file.variables['N0BCXD0'][:]
+        first_fastn = self.file.variables['N0BD0'][:]
 #        halob = self.file.variables['N0BH_D'][:]
-#        n0fast = first_fastn+CXfastn+halob
+        n0fast = first_fastn+CXfastn
         tot_source = v_source+w_source#+Drecy+Dflow+Dsflow+Dnrecy+Drec
-        #tot_source += n0fast
+        tot_source += n0fast
         
-        self.n0_tot = tot_source
+        self.n0_tot = tot_source*1e6 #in m^-3
         if plot==1:
             au.common_style()
             f=plt.figure(); ax=f.add_subplot(111)
@@ -216,7 +216,8 @@ class transp_exp(transp_heating):
         we  = np.multiply(self.kin_vars['ne'],self.kin_vars['te'])*1.602e-19*1.5
         wim = np.multiply(self.imp_vars['nimp'],self.kin_vars['ti'])*1.602e-19*1.5
         wth = we+wi+wim
-
+        wtot_dens = self.file.variables['UTOTL'][:]
+        
         self.wth=np.zeros(len(self.t)); self.wtot=np.copy(self.wth); self.wprp=np.copy(self.wth); self.we=np.copy(self.wth); self.wi=np.copy(self.wth)
         for i in range(len(self.t)):
             self.wth[i]  = np.dot(wth[i], self.dvol[i,:])
@@ -224,5 +225,6 @@ class transp_exp(transp_heating):
             self.wi[i] = np.dot(wi[i], self.dvol[i,:])
             if self.flag_beam==1:
                 self.wprp[i] = np.dot(self.file.variables['UBPRP'][i]*1e6, self.dvol[i,:])
-            
-        self.wtot=self.wth+1.5*self.wprp
+            self.wtot[i] = np.dot(wtot_dens[i,:]*1e6, self.dvol[i,:])
+
+        #self.wtot=self.wth+1.5*self.wprp

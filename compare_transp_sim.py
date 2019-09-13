@@ -19,7 +19,7 @@ if len(sys.argv)==1:
 
 fnames = ['']*(len(sys.argv)-2)
 for i, el in enumerate(sys.argv[1:-1]):
-    _pre = "/home/vallar/tr_client/TCV/"
+    _pre = "/home/vallar/NoTivoli/tr_client/TCV/"
     pre = _pre+el[0:5]+"/"
     suff=''
     if el[-1]!="F":

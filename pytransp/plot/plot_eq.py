@@ -49,9 +49,9 @@ def plot_eq(to, time=[0], f=0):
     axq.plot([0,1], [1,1], 'r--')
     axq.set_ylim([0,10]); axf.set_ylim([0,0.5])
 
-    axc.plot(to.t[ind], to.file.variables['PCUR'][ind]*1e-3, 'kv', label=r'Data', lw=2., linestyle=ls)
+    axc.plot(to.t[ind], to.file.variables['PCUR'][ind]*1e-3, 'kv', label=r'TRANSP CUR', lw=2., linestyle=ls)
     #axc.plot(to.t[ind], to.file.variables['PCURC'][ind]*1e-3, 'kv', label=r'Calc', lw=2., linestyle=ls)
-    axff.plot(to.t[ind], to.eq_vars['f'][ind], 'rx', label=r'Data', lw=2., linestyle=ls)
+    axff.plot(to.t[ind], to.eq_vars['f'][ind], 'rx', label=r'TRANSP F', lw=2., linestyle=ls)
     
     #========================================================
     # SET TICK LOCATION
