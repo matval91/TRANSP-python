@@ -216,7 +216,7 @@ class transp_exp(transp_heating):
         we  = np.multiply(self.kin_vars['ne'],self.kin_vars['te'])*1.602e-19*1.5
         wim = np.multiply(self.imp_vars['nimp'],self.kin_vars['ti'])*1.602e-19*1.5
         wth = we+wi+wim
-        wtot_dens = self.file.variables['UTOTL'][:]
+        #wtot_dens = self.file.variables['UTOTL'][:]
         
         self.wth=np.zeros(len(self.t)); self.wtot=np.copy(self.wth); self.wprp=np.copy(self.wth); self.we=np.copy(self.wth); self.wi=np.copy(self.wth)
         for i in range(len(self.t)):
@@ -225,6 +225,6 @@ class transp_exp(transp_heating):
             self.wi[i] = np.dot(wi[i], self.dvol[i,:])
             if self.flag_beam==1:
                 self.wprp[i] = np.dot(self.file.variables['UBPRP'][i]*1e6, self.dvol[i,:])
-            self.wtot[i] = np.dot(wtot_dens[i,:]*1e6, self.dvol[i,:])
+            #self.wtot[i] = np.dot(wtot_dens[i,:]*1e6, self.dvol[i,:])
 
-        #self.wtot=self.wth+1.5*self.wprp
+        self.wtot=self.wth+1.5*self.wprp

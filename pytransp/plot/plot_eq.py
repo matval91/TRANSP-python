@@ -28,9 +28,9 @@ def plot_eq(to, time=[0], f=0):
         axf = f.add_subplot(223)
         axc = f.add_subplot(224)
         axq = axf.twinx()  # instantiate a second axes that shares the same x-axis
-        axff=axc.twinx()       
+        #axff=axc.twinx()       
     else:
-        axj, axp, axf, axc, axq, axff = f.axes
+        axj, axp, axf, axc, axq = f.axes
         flag_leg=0
         ls='--'
     axj.plot(to.rho[ind,:], to.eq_vars['j'][ind,:]*1e-3, 'k', label=r'$j_{TOT}$', lw=2., linestyle=ls)
@@ -49,9 +49,11 @@ def plot_eq(to, time=[0], f=0):
     axq.plot([0,1], [1,1], 'r--')
     axq.set_ylim([0,10]); axf.set_ylim([0,0.5])
 
-    axc.plot(to.t[ind], to.file.variables['PCUR'][ind]*1e-3, 'kv', label=r'TRANSP CUR', lw=2., linestyle=ls)
-    #axc.plot(to.t[ind], to.file.variables['PCURC'][ind]*1e-3, 'kv', label=r'Calc', lw=2., linestyle=ls)
-    axff.plot(to.t[ind], to.eq_vars['f'][ind], 'rx', label=r'TRANSP F', lw=2., linestyle=ls)
+    axc.plot(to.rho[ind,:], to.file.variables['ETA_USE'][ind,:], 'k', lw=2., linestyle=ls)
+    
+    # axc.plot(to.t[ind], to.file.variables['PCUR'][ind]*1e-3, 'kv', label=r'TRANSP CUR', lw=2., linestyle=ls)
+    # #axc.plot(to.t[ind], to.file.variables['PCURC'][ind]*1e-3, 'kv', label=r'Calc', lw=2., linestyle=ls)
+    # axff.plot(to.t[ind], to.eq_vars['f'][ind], 'rx', label=r'TRANSP F', lw=2., linestyle=ls)
     
     #========================================================
     # SET TICK LOCATION
@@ -59,8 +61,7 @@ def plot_eq(to, time=[0], f=0):
     if flag_leg==1:
         axq.tick_params(axis='y', labelcolor='r')
         axq.set_ylabel(r'q', color='r')
-        axff.tick_params(axis='y', labelcolor='r')
-        axff.set_ylabel(r'F [T*m]', color='r')        
+        axc.set_yscale('log')
         au.limit_labels(axj, r'$\rho_{TOR}$', r'j [kA/m$^2$]','' )
         au.limit_labels(axp, r'$\rho_{TOR}$', r'p [kPa]','' )
         axf.set_xlabel(r'$\rho_{TOR}$')
@@ -68,9 +69,8 @@ def plot_eq(to, time=[0], f=0):
         axj.legend(loc='best')
         axf.legend(loc='upper left'); axf.grid('on')
         axp.legend(loc='upper right'); axp.grid('on')
-        axc.legend(loc='upper right'); axc.grid('on')
-        au.limit_labels(axc, r'$t [s]$', r'I [kA]','' )
-
+        axc.grid('on'); axc.set_xlabel(r'$\rho_{TOR}$')
+        axc.set_ylabel(r'$\eta$')
         f.tight_layout()
         f.subplots_adjust(top=0.9)
     else:

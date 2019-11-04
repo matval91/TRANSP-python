@@ -48,4 +48,22 @@ plt.grid('on')
 plt.legend(loc='best')
 plt.tight_layout()
 
+f=plt.figure();ax=f.add_subplot(111)
+ax.set_xlabel(r'$\rho_{Tor}$'); ax.set_ylabel(r'$T_0^{rec}$ [eV]')
+for el in fnames:
+    output = te.transp_exp(el);
+    ind = np.argmin(output.t-time<0.)
+    x, y = output.rho[ind,:], output.file.variables['T0CX_RCD'][ind,:]
+    try:
+        output._calculate_scalars()
+        pcx = output.pcx[ind]/output.nb_in_vars['P_D'][ind]*100.
+    except AttributeError:
+        pcx=0.
+    plt.plot(x, y, label=el[-12:-4]+' pcx='+'{:.2f}'.format(pcx)+' %')
+plt.yscale('linear')
+plt.grid('on')
+plt.legend(loc='best')
+plt.tight_layout()
+
+
 plt.show()

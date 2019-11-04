@@ -110,12 +110,18 @@ ti=ti_s.data()
 ti_t = conn.get('dim_of('+sig+',1)').data()
 ind=np.argmin(ti_t-time<0.)
 ti = ti[ind,:]
+
+sig=r'\tcv_shot::top.results.conf:z_eff'
+zeff_s=conn.get(sig)
+zeff=zeff_s.data()
+zeff_t = conn.get('dim_of('+sig+',0)').data()
 ####################
 # Converting rho of thomson (poloidal norm flux) to rho of TRANSP (toroidal norm flux
 ####################
 #tflux=phip(rho**2)
 rhot=rho
 rhot_ti=rho
+data['zeff'] = np.array([zeff_t, zeff])
 data['EXP']['pe'] = np.array([rhot, pe])
 data['EXP']['ne'] = np.array([rhot, ne])
 data['EXP']['te'] = np.array([rhot, te])
@@ -150,7 +156,7 @@ ttransp=tt[ind]
 rho=output.rho[ind,:]
 data['TRANSP']['ne'] = np.array([rho, output.kin_vars['ne'][ind, :]])
 data['TRANSP']['te'] = np.array([rho, output.kin_vars['te'][ind, :]])
-data['TRANSP']['we'] = np.array([tt, output.we])
+data['TRANSP']['wth'] = np.array([tt, output.wth])
 
 data['TRANSP']['pe'] = np.array([output.rho[ind, :], data['TRANSP']['ne'][1,:]*data['TRANSP']['te'][1,:]*1.602e-19])
 
@@ -158,7 +164,7 @@ data['TRANSP']['pe'] = np.array([output.rho[ind, :], data['TRANSP']['ne'][1,:]*d
 
 data['TRANSP']['ti'] = np.array([rho, output.kin_vars['ti'][ind, :]])
 #data['TRANSP']['ni'] = np.array([output.rho[ind, :], output.kin_vars['ni'][ind, :]])
-
+data['TRANSP']['zeff'] = np.array([tt, output.file.variables['ZEFFI0']])
 
 plt.rc('font', weight='bold')
 plt.rc('xtick', labelsize=10)
@@ -176,6 +182,8 @@ lab = {'EXP':'EXP (t={:2.2f})'.format(ttexp), 'TRANSP':'TRANSP (t={:2.2f})'.form
 f,axs=plt.subplots(nrow, ncol, figsize=[4*ncol,3*nrow])
 
 for indk, key in enumerate(data['EXP'].keys()):
+    if key=='zeff':
+        continue
     _col=indk% ncol
     _row=int(indk/ncol)
     ax=axs[_row,_col]
@@ -188,6 +196,15 @@ for indk, key in enumerate(data['EXP'].keys()):
         if offset!=0:
             ax.plot(data['EXP'][key][0,:], data['EXP'][key][1,:]+offset, color=col['EXP'], ls='--', label='EXP w offset')
             ax.legend(loc='best')
+
+        ax.plot(data['TRANSP']['wth'][0,:],data['TRANSP']['wth'][1,:] , color=col['TRANSP'], ls='-.')
+    elif key=='vl':
+        ax2=ax.twinx()
+        ax2.plot(data['zeff'][0,:], data['zeff'][1,:], color=col['EXP'],ls='--')
+        ax2.plot(data['TRANSP']['zeff'][0,:], data['TRANSP']['zeff'][1,:], color=col['TRANSP'], ls='--')
+        ax.set_ylim([-2, 5.]); ax2.set_ylim([0., 5])
+        ax2.set_ylabel(r'Z_{eff} (dotted)')
+            
             
     if indk==0:
         ax.legend(loc='best')
@@ -198,4 +215,7 @@ for indk, key in enumerate(data['EXP'].keys()):
     ax.grid('on')
 f.suptitle(shot+'  t = '+str(time))
 f.tight_layout()
+
+output.plot_powerbalance()
+
 plt.show()

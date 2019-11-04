@@ -15,7 +15,7 @@ if len(sys.argv)==1:
     sys.exit()
 
 fnames = ['']*(len(sys.argv)-2)
-_pre = "/home/vallar/tr_client/TCV/"
+_pre = "/home/vallar/NoTivoli/tr_client/TCV/"
 pre = _pre+sys.argv[1][0:5]+"/"
 suff=''
 if sys.argv[1][-1]!="F":
