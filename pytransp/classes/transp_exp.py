@@ -15,7 +15,7 @@ import pytransp.trutils.transp_utils as tu
 import utils.plot_utils as au
 
 class transp_exp(transp_heating):
-    """Class for 1d output
+    """Class for 1d output0
        
     Parameters:
         None

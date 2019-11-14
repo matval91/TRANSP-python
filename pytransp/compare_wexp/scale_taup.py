@@ -30,23 +30,23 @@ def scale_taup(fname='/home/vallar/TCV/58823/58823V68.CDF', \
     Returns:
         None
     """
-
-    taup=input('taup for simulation '+fname+' in millisec ')
-    taup=float(taup)
-    
     n0data = np.loadtxt(exp_fname)
     _texp, _n0exp = n0data[:,0], n0data[:,1]
     if setvalue!=1e25:
         _n0exp[_texp>time] = np.full(len(np.where(_texp>time)[0]), setvalue) 
 
     o=te.transp_exp(fname)
+    taup = o.file.variables['TAUPI'][:]
+    print('taup for simulation {:s} = {:d} millisec'.format(fname, np.mean(taup))
+    taup=float(taup)
+    taup=cdfloc['TAUPI']['data'][:,-1]
+
     o._calculate_n0()
     tsim, n0sim = o.t, o.n0_tot[:,-1]
     
     param_exp = interp.interp1d(_texp, _n0exp)
     time = tsim[np.where(tsim<2.)[0]][:]
     n0exp = param_exp(time)
-    
 
     factor = n0exp/n0sim
     taunew = taup/factor*1e-3 #converts to seconds
