@@ -6,7 +6,6 @@ Created on Fri Jan 12 13:43:58 2018
 @author: vallar
 """
 from utils.fdist_superclass import fdist_superclass
-from utils.plot_utils import _plot_2d
 import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
@@ -82,20 +81,6 @@ class transp_fbm(fdist_superclass):
                                 self.dict_dim_MCgrid['z'], self.fdist_MCgrid[:,i,j]) 
                 self.fdist_notnorm[j,i,:,:] = z
 
-    def _computenorm(self):
-        """
-        calculates the norm of the function
-        """
-        if "pitch" in self.dict_dim.keys():
-            try:
-                self.f_spacep_int()
-            except:
-                self._integrate_spacep()
-                
-        self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
-        self.norm=1.
-        #print "NORM = ", self.norm
-
     def _readwall(self):
         """
         Hidden method to read the wall
@@ -128,18 +113,7 @@ class transp_fbm(fdist_superclass):
         grid_x, grid_y = np.mgrid[min(x):max(x):nbin_compl, min(y):max(y):nbin_compl]
         grid_z = interp.griddata((x,y), z, (grid_x, grid_y), method='cubic', fill_value=0.)        
         return grid_z
-        
-    def plot_space(self):
-        """
-        """
-        try:
-            self.f_Ep_int.mean()
-        except:
-            self._integrate_Ep()
-        x,y = self.dict_dim['R'], self.dict_dim['z']
-        title = self.runid + ' ' + str(self.time)
-        _plot_2d(x,y, r'R [m]', r'z [m]',self.f_Ep_int.data.T, title, \
-                    wallrz=[self.R_w, self.z_w], surf=[self.rsurf, self.zsurf])
+
         
 class fbm_time:
     """
