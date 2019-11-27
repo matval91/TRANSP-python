@@ -6,8 +6,7 @@ This is a temporary script file.
 """
 import pytransp.classes.transp_fbm as tfbm
 import sys
-
-    
+   
 def main(fname='../examples/65052V01_fi_1.cdf'):
     """
     """
@@ -18,6 +17,12 @@ def main(fname='../examples/65052V01_fi_1.cdf'):
     fbm.plot_spacep()
     return fbm
 
-if __name__ == '__main__':
-    fname=sys.argv[1]
+if len(sys.argv) ==1:
+    fname = sys.argv[1]
     main(fname)
+else:
+    print("Please give as input a FBM function")
+    print("")
+    print('\n e.g. \n plot_fbm 65052V01_fi_1.cdf \n')
+    sys.exit()
+
