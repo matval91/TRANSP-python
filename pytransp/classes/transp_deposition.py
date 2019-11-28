@@ -8,37 +8,11 @@ Created on Fri Jan 12 13:43:58 2018
 from __future__ import print_function
 import netCDF4 as nc
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import colors, interactive
-import math, collections
+from matplotlib import interactive
 import scipy.interpolate as interp
 import glob, os, shutil
-from utils.plot_utils import common_style, limit_labels, _cumulative_plot, _plot_2d
-
-col = ['k','r','b','m','g','c']
-col2=np.copy(col)
-col2[0]='y'
-
-cdict = {'red': ((0., 1, 1),
-                 (0.05, 1, 1),
-                 (0.11, 0, 0),
-                 (0.66, 1, 1),
-                 (0.89, 1, 1),
-                 (1, 0.5, 0.5)),
-         'green': ((0., 1, 1),
-                   (0.05, 1, 1),
-                   (0.11, 0, 0),
-                   (0.375, 1, 1),
-                   (0.64, 1, 1),
-                   (0.91, 0, 0),
-                   (1, 0, 0)),
-         'blue': ((0., 1, 1),
-                  (0.05, 1, 1),
-                  (0.11, 1, 1),
-                  (0.34, 1, 1),
-                  (0.65, 0, 0),
-                  (1, 0, 0))}
-my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
+from utils.plot_utils import common_style, _cumulative_plot, _plot_2d
+common_style()
 
 class absorption:
     """
@@ -114,12 +88,13 @@ class absorption:
     current shape = (50478,)
     filling off
     """
-    def __init__(self, inf_name):
+    def __init__(self, inf_name, fname_surf=''):
         """
         Gathers variables
         """
         self.infile_n = inf_name
         self.file = nc.Dataset(inf_name)
+        self.fname_surf = fname_surf
         self.shot = inf_name[0:5]
         keys = ['R','z', 'Rgc','zgc', 'pitch','E','weight','phi','time', 'beamid']
         varnames = ['bs_r_D_MCBEAM', 'bs_z_D_MCBEAM', 'bs_rgc_D_MCBEAM',\
@@ -134,7 +109,7 @@ class absorption:
         self.npart = len(self.data_i['R'])
         
         #Convert phi from deg to rad
-        self.data_i['phi']=self.data_i['phi']*math.pi/180.
+        self.data_i['phi']=self.data_i['phi']*np.pi/180.
 
         #convert the distances from cm to m
         for i in ['R','z', 'Rgc', 'zgc']:
@@ -144,9 +119,9 @@ class absorption:
         self.data_i['Y'] = np.multiply(self.data_i['R'],np.sin(self.data_i['phi']))
 
         self.time = self.file.variables['bs_time_D_MCBEAM'][:].mean().round(3)
-        
+        self.read_surf()
         self._readwall()
-        
+            
     def _fill_dict(self, keys, varnames, name_dict, var_dict):
         """
         Fills dictionaries
@@ -161,19 +136,36 @@ class absorption:
             
         return name_dict, var_dict
 
+
+    def read_surf(self):
+        """
+        """
+        if self.fname_surf!='':
+            self.infile_surf = nc.Dataset(self.fname_surf)
+            rsurf, zsurf = self.infile_surf.variables['RSURF'][:], self.infile_surf.variables['ZSURF'][:]
+            _rho =  self.infile_surf.variables['XSURF'][:]
+            rsurf *= 0.01; zsurf *= 0.01
+            self.surf= np.array([rsurf, zsurf])
+            rho = np.repeat(_rho, (np.shape(rsurf)[1]))   
+            grid_x, grid_y = np.mgrid[np.min(rsurf):np.max(rsurf):100j, np.min(zsurf):np.max(zsurf):200j]
+            self.RZsurf = interp.griddata(np.array([rsurf.flatten(), zsurf.flatten()]).T, rho, (grid_x, grid_y), fill_value=1) 
+            self.RZsurf_param = interp.interp2d(grid_x, grid_y, self.RZsurf)
+        else:
+            self.surf=0;
+        
     def plot_RZ(self):
         """
         Method to plot R vs z of the ionised particles, useful mostly with bbnbi
         """
         x=self.data_i['R']
         y=self.data_i['z']
+        wallrz= [self.R_w, self.z_w]
 
         xlab = 'R [m]'
-        ylab = 'z [m]'
-        wallrz= [self.R_w, self.z_w]
-        #surf=[self.Rsurf, self.zsurf, self.RZsurf]
-        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, title='RZ ionization',\
-                 wallrz=wallrz, xlim=[0.6, 1.1], scatter=1)
+        ylab = 'z [m]' 
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab,\
+                dist=0, title='t={:.2f} s'.format(self.time), wallxy=0, wallrz=wallrz, surf=self.surf, R0=0, ax=0, \
+                scatter=0, hist=1, xlim=[0.6, 1.1], ylim=0, fname='', cblabel='', lastpoint=1)        
         
     def plot_XYpart(self):
         """
@@ -181,42 +173,28 @@ class absorption:
         """
         x=self.data_i['X']
         y=self.data_i['Y']
-            
-        f=plt.figure()
-        ax=f.add_subplot(111)
-        hb = ax.hist2d(x, y, bins=100, cmap=my_cmap, normed=True)
-        f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        theta=np.arange(0,6.3,0.02*6.28)
-        if len(self.R_w)==0:
-            ax.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'k', linewidth=3)
-            ax.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'k', linewidth=3)
-        plt.show()
+        wallrz= [self.R_w, self.z_w]
         
-        
+        _plot_2d(x,y, xlabel=r'X (m)', ylabel=r'Y (m)',\
+           dist=0, title='t={:.2f} s'.format(self.time), wallxy=wallrz, wallrz=0, surf=0, R0=0.88, ax=0, \
+           scatter=1, hist=0, xlim=0, ylim=0, fname='', cblabel='', lastpoint=1)       
+    
     def plot_Epitch(self):
         """
         Method to plot E pitch of ionisation
         """
+        y=self.data_i['E']
+        x=self.data_i['pitch']
 
-        x=self.data_i['E']
-        y=self.data_i['pitch']
-            
-        f=plt.figure()
-        ax=f.add_subplot(111)
-        hb = ax.hist2d(x, y, bins=100, cmap=my_cmap, normed=True)
-        f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('E')
-        ax.set_ylabel('pitch')
-        plt.show()
-        
+        _plot_2d(x,y, xlabel=r'$\xi$', ylabel=r'E (keV)',\
+                dist=0, title='t={:.2f} s'.format(self.time), wallxy=0, wallrz=0, surf=0, R0=0, ax=0, \
+                scatter=0, hist=1, xlim=0, ylim=0, fname='', cblabel='', lastpoint=1)            
         
     def _readwall(self):
         """
         Hidden method to read the wall
         """
-        in_w_fname='/home/vallar/TCV/TCV_vessel_coord.dat'
+        in_w_fname='/home/vallar/TCV_wall/TCV_vessel_coord.dat'
         try:
             wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
         except OSError:
