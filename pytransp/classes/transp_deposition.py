@@ -119,7 +119,7 @@ class absorption:
         self.data_i['Y'] = np.multiply(self.data_i['R'],np.sin(self.data_i['phi']))
 
         self.time = self.file.variables['bs_time_D_MCBEAM'][:].mean().round(3)
-        self.read_surf()
+        self.find_rho()
         self._readwall()
             
     def _fill_dict(self, keys, varnames, name_dict, var_dict):
@@ -137,7 +137,23 @@ class absorption:
         return name_dict, var_dict
 
 
-    def read_surf(self):
+    def find_rho(self):
+        """
+        """
+        try:
+            np.mean(self.surf)
+        except:
+            self._read_surf()
+        self.data_i['rho']=np.zeros(np.size(self.data_i['R']))
+        if type(self.surf)==int:
+            return
+        else:
+            for i,r in enumerate(self.data_i['R']):
+                self.data_i['rho'][i]=self.RZsurf_param(r,self.data_i['z'][i])
+                if r<0.88:
+                    self.data_i['rho'][i]*=-1
+
+    def _read_surf(self):
         """
         """
         if self.fname_surf!='':
@@ -147,9 +163,11 @@ class absorption:
             rsurf *= 0.01; zsurf *= 0.01
             self.surf= np.array([rsurf, zsurf])
             rho = np.repeat(_rho, (np.shape(rsurf)[1]))   
+            rrange = np.linspace(np.min(rsurf),np.max(rsurf), 100)
+            zrange = np.linspace(np.min(zsurf),np.max(zsurf), 200)
             grid_x, grid_y = np.mgrid[np.min(rsurf):np.max(rsurf):100j, np.min(zsurf):np.max(zsurf):200j]
             self.RZsurf = interp.griddata(np.array([rsurf.flatten(), zsurf.flatten()]).T, rho, (grid_x, grid_y), fill_value=1) 
-            self.RZsurf_param = interp.interp2d(grid_x, grid_y, self.RZsurf)
+            self.RZsurf_param = interp.interp2d(rrange, zrange, self.RZsurf.T)
         else:
             self.surf=0;
         
@@ -157,12 +175,10 @@ class absorption:
         """
         Method to plot R vs z of the ionised particles, useful mostly with bbnbi
         """
-        x=self.data_i['R']
-        y=self.data_i['z']
+        x=self.data_i['R'];  y=self.data_i['z']
         wallrz= [self.R_w, self.z_w]
 
-        xlab = 'R [m]'
-        ylab = 'z [m]' 
+        xlab = 'R [m]';ylab = 'z [m]' 
         _plot_2d(x, y, xlabel=xlab, ylabel=ylab,\
                 dist=0, title='t={:.2f} s'.format(self.time), wallxy=0, wallrz=wallrz, surf=self.surf, R0=0, ax=0, \
                 scatter=0, hist=1, xlim=[0.6, 1.1], ylim=0, fname='', cblabel='', lastpoint=1)        
@@ -171,8 +187,7 @@ class absorption:
         """
         Method to plot XY of ionisation, without difference between the beams
         """
-        x=self.data_i['X']
-        y=self.data_i['Y']
+        x=self.data_i['X']; y=self.data_i['Y']
         wallrz= [self.R_w, self.z_w]
         
         _plot_2d(x,y, xlabel=r'X (m)', ylabel=r'Y (m)',\
@@ -183,12 +198,20 @@ class absorption:
         """
         Method to plot E pitch of ionisation
         """
-        y=self.data_i['E']
-        x=self.data_i['pitch']
+        y=self.data_i['E']; x=self.data_i['pitch']
 
         _plot_2d(x,y, xlabel=r'$\xi$', ylabel=r'E (keV)',\
                 dist=0, title='t={:.2f} s'.format(self.time), wallxy=0, wallrz=0, surf=0, R0=0, ax=0, \
-                scatter=0, hist=1, xlim=0, ylim=0, fname='', cblabel='', lastpoint=1)            
+                scatter=0, hist=1, xlim=0, ylim=0, fname='', cblabel='', lastpoint=1) 
+           
+    def plot_rhopitch(self):
+        """
+        """
+        x=self.data_i['rho']; y=self.data_i['pitch']
+        _plot_2d(x,y, xlabel=r'$\rho_{TOR}$', ylabel=r'$\xi$',\
+                dist=0, title='t={:.2f} s'.format(self.time), wallxy=0, wallrz=0, surf=0, R0=0, ax=0, \
+                scatter=0, hist=1, xlim=0, ylim=0, fname='', cblabel='', lastpoint=1)         
+        
         
     def _readwall(self):
         """

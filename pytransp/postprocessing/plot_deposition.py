@@ -9,6 +9,7 @@ def main(fname= '../examples/65052V01_fi_1.cdf', fname_surf=''):
     dep.plot_XYpart()
     dep.plot_RZ()
     dep.plot_Epitch()
+    dep.plot_rhopitch()
     return
 
 if len(sys.argv) ==2:
