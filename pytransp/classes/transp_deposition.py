@@ -107,7 +107,6 @@ class absorption:
         self.data_i_names, self.data_i = self._fill_dict(keys, varnames, \
                 self.data_i_names, self.data_i) 
         self.npart = len(self.data_i['R'])
-        
         #Convert phi from deg to rad
         self.data_i['phi']=self.data_i['phi']*np.pi/180.
 
@@ -121,7 +120,17 @@ class absorption:
         self.time = self.file.variables['bs_time_D_MCBEAM'][:].mean().round(3)
         self.find_rho()
         self._readwall()
-            
+        self._add_for_ascot5()
+    def _add_for_ascot5(self):
+        """
+        Adding data needed for conversion to ascot5
+        """
+        self.data_i['id'] = np.linspace(1, self.npart, self.npart, dtype=int)
+        self.data_i['mass'] = np.full(self.npart, 2.014)
+        self.data_i['charge'] = np.full(self.npart, 1.)
+        self.data_i['Anum'] = np.full(self.npart, 2.) 
+        self.data_i['Znum'] = np.full(self.npart, 1.) 
+        
     def _fill_dict(self, keys, varnames, name_dict, var_dict):
         """
         Fills dictionaries

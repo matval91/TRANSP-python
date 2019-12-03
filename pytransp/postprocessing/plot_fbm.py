@@ -17,7 +17,7 @@ def main(fname='../examples/65052V01_fi_1.cdf'):
     fbm.plot_spacep()
     return fbm
 
-if len(sys.argv) ==1:
+if len(sys.argv) ==2:
     fname = sys.argv[1]
     main(fname)
 else:
