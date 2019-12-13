@@ -71,6 +71,41 @@ def plot_deposition_1d(th, time=[0], axp=0, axf=0, ls='-'):
     plt.show()     
 
 
+def plot_deposition_multishot(ths, time):
+    """
+    plots deposition for multiple simulations
+    """
+    au.common_style()
+    
+    f = plt.figure(figsize=(10,10))
+    f.text(0.5, 0.9, r't={:.2f}s'.format(time), fontsize=18)
+    axe = f.add_subplot(221)
+    axi = f.add_subplot(222, sharex=axe, sharey=axe)
+    axn = f.add_subplot(223, sharex=axe)
+    axj = f.add_subplot(224, sharex=axe)
+    for index,th in enumerate(ths):
+        i = tu._time_to_ind(th.t, time, inj_index=th.inj_index)
+        i=i[0]
+        lab=r'{:s}'.format(th.runid)
+        x=th.rho[i,:]
+        axi.plot(x, th.nb_FKP_vars['pi'][i,:]*1e-3, col[index], lw=2, label=lab)
+        axe.plot(x, th.nb_FKP_vars['pe'][i,:]*1e-3, col[index], lw=2, label=lab)
+        axn.plot(x, th.nb_FKP_vars['n'][i, :]/th.kin_vars['ne'][i,:]*100., col[index], lw=2, label=lab)
+        axj.plot(x, th.nb_FKP_vars['nbcd'][i,:]*1e-3, col[index],lw=2.,label=lab)        
+    au.limit_labels(axe,r'$\rho$', r'$P_e$ [$kW/m^3$]','')
+    au.limit_labels(axi,r'$\rho$', r'$P_i$ [$kW/m^3$]','')
+    au.limit_labels(axn,r'$\rho$', r'$n_f/n_e$ [%]','')
+    au.limit_labels(axj,r'$\rho$', r'j shielded [$kA/m^2$]','')
+
+    axe.legend(loc='best')
+    #f.text(0.01, 0.01, th.fname)
+
+    f.tight_layout()
+    #f.subplots_adjust(right=0.8)
+    plt.show()    
+
+
+
 def plot_deposition_prof(th, ind=[0]):
     """
     Plots deposition to ions, electrons
@@ -81,7 +116,7 @@ def plot_deposition_prof(th, ind=[0]):
     except:
         print("No data")
         return
-    if len(ind)==1:
+    if len(ind)==1 and ind[0]==0:
         ind = np.linspace(0, len(th.inj_index)-1, 5, dtype=int)
     f = plt.figure(figsize=(18,6))
     axe = f.add_subplot(131)

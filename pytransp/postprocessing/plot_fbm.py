@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Spyder Editor
-
-This is a temporary script file.
-"""
 import pytransp.classes.transp_fbm as tfbm
 import sys
    

@@ -41,19 +41,19 @@ def _time_to_ind(time_transp, time, inj_index=[0]):
         time_transp = time_transp[inj_index]
     else:
         time_transp = time_transp
-    ind=[]
+    time_transp=np.array(time_transp)
+    ind=np.array([])
     try:
         ttt=time[0]
         if ttt[0]!=0:
             for t in ttt:
-                ind.append(np.argmin(time_transp-t<0.))
+                ind = np.append(ind, np.argmin(time_transp-t<0.))
             ind=np.array(ind,dtype=int)
         else:
             ind = np.array([0])
             ind = ind.astype(int)
     except:
         ttt=time
-        ind.append(np.argmin(time_transp-ttt<0.))
+        ind=np.append(ind, np.argmin(time_transp-ttt<0.))
             
-
-    return ind
+    return np.array(ind,dtype=int)

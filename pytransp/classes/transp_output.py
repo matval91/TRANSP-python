@@ -33,7 +33,7 @@ class transp_output:
         """
         self.fname = fname
         self.file = nc.Dataset(self.fname)
-        self.runid = self.fname[-14:-4]
+        self.runid = self.fname[-12:-4]
         self.run = self.runid[0:5]
         self._set_vars()
         self._calculate_all()
