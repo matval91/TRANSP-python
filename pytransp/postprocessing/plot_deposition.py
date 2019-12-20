@@ -14,7 +14,7 @@ def main(fname= '../examples/65052V01_fi_1.cdf', fname_surf=''):
 
 if len(sys.argv) ==2:
     fname = sys.argv[1]
-    r,z,phi,E,xi = main(fname)
+    main(fname)
 elif len(sys.argv) ==3:
     fname = sys.argv[1]
     fname_surf = sys.argv[2]

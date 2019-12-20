@@ -1,7 +1,7 @@
 import pytransp.classes.transp_fbm as tfbm
 import sys
    
-def main(fname='../examples/65052V01_fi_1.cdf'):
+def main(fname):
     """
     """
     fbm=tfbm.transp_fbm(fname)
