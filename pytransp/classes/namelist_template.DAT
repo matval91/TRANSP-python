@@ -1,0 +1,230 @@
+!===================================
+!General setting & plot options
+!===================================
+nshot=$SHOT
+tinit=$TBEG
+ftime=$TEND
+nzones  = 40
+nzone_nb= 40
+nzone_fp= 20
+nzone_fb= 10
+sedit=$timestep   ! determines the time spacing between profile data output records.
+stedit=$timestep  ! determines the time spacing between scalar data output records
+tgrid1=$timestep_half
+tgrid2=$timestep_half
+NLBCCW=$NLBCCW  ! orientation of B (.TRUE. for counter-clockwise)
+NLJCCW=$NLJCCW  ! orientation of Ip (.TRUE. for counter-clockwise)
+INPUTDIR='$SHOT'
+NBI_PSERVE=1
+
+!============
+! FBM output
+!============
+AVGTIM=0.01
+MTHDAVG=2
+OUTTIM(1)=1.43
+NLDEP0_GATHER=T
+
+!=====================================================================
+! SAWTOOTH MODEL (Kadomtsev model, list of sawtooth times in SAW ufile)
+!======================================================================
+NLSAW=F   !TRUE TO TURN ON KADOMTSEV SAWTOOTH MODELING
+NLSAWD=T  !TRUE IF INPUT DATA PREPARED WITH SAWTOOTH BREAKS
+NLSAWE=F  !TRUE TO APPLY MODEL TO ELECTRONS (TE PREDICTION)
+NLSAWI=F  !TRUE TO APPLY MODEL TO THERMAL IONS (TI PREDICTION)
+NLSAWB=T  !TRUE TO APPLY MODEL TO FAST IONS
+NLSAWIC=F !TRUE TO APPLY MODEL TO ICRF FAST IONS (see HELP)
+DTSAWD=.002 ! EXTRAPOLATE DATA W/IN DTSAWD OF SAWTOOTH EVENT
+            ! I.E. DO NOT TRUST INTERPOLATION BTW. TIME PTS. THIS CLOSE
+            ! TO A SAWTOOTH EVENT.
+XSWID1=0.0  ! 0=best model for sawtooth effect on temperature
+XSWID2=0.0  ! 0=Kadomtsev model for sawtooth effect on q(r)
+            ! 0 for full Kadomtsev J mixing; 1 for no mixing; 0.x for compromise
+
+!=====================!
+! Anomalous diffusion !
+!=====================!
+ !NMDIFB=0;1;2;3 anom. diff. off; Db=min(CDIFB, max(BDIFB,(ADIFB*De))) and De 
+ !from power balance; De with Ware pinch correction; Db from D2F Ufile (2D)
+ nmdifb=0
+ !For a constant anomalous diffusivity, set BDIFB=CDIFB=constant.
+ CDIFB=0.0E+04
+ BDIFB=0.0E+04
+ EDIFBE=0.1E+05, 0.9E+05  !Energies
+ FDIFBE=1.0E+00, 1.0E+00  !Difb vs. E multipliers
+ nkdifb=1       !1;2;3 apply model to beam & rf; fusion product; all fast ions
+
+!=======================
+!Power balance
+!=======================
+nlti2=T    !! skip the Ti prediction
+nltipro=T  !! skip the Ti prediction
+nprad=1    !! use prebol and extbol for radiated power
+fiefac=1.0 !!fiefac=1 takes ti data as used ti
+prfac=1.0000000
+alph0e=0.0000000       !! electron convection power loss
+alph0i=0.0000000       !! ion convection power loss
+
+
+!=============
+! Rotation
+!=============
+nlvphi=T
+NLOMGVTR=.T     ! Input profile refers to impurity rotation
+
+!=======================
+!MHD equilibrium
+!======================= 
+!exp=AUGD
+!dia=EQI
+!ed=0
+nefld=7                !Initialize the q profile from experimental data
+levgeo=6
+levgb=3
+levtrk=2
+nlmdif=T
+!If good Zeff data is available, NLPCUR=.T and NLVSUR=.F are usually
+!used.  This matches the plasma current and predicts the surface
+!voltage which is then later compared to measurement.
+nlpcur=T               ! q-profile is modified based on the plasma current
+vsuri=1.	       ! input loop voltage (is free anyway!)
+nlvsur=F               ! false for free surface voltage
+nlspiz=F               ! false for neoclassical resisitivity, true for spitzer
+vlpmin=-1.             ! minimum voltage allowed
+nlres_sau=T            ! true for neoclassical resistivity by O. Sauter
+nletaw=F               ! true for resistivity based on the NCLASS code
+nlboot=T               ! Use bootstrap current
+nlboot_sau=T           ! true for bootstrap current as published by O. Sauter
+		       ! O.Sauter and C.Angioni, Phys of Plas 6(7), 2834 (1999)
+nlbootw=F              ! true for bootstrap current by NCLASS neoclassical code
+!! NBI CURRENT DRIVE SETTINGS:
+!  NMCURB=1 is neoclassical: Hirshman, Phys. Fluids vol. 21 No. 8 Aug 1978
+!  NMCURB=2 is Spitzer, (1-Zb/Zeff), (no trapping correction)
+!  NMCURB=3 is updated neoclassical:  Y.R. Lin-Liu, 
+!                F.L. Hinton, Phys. Plasmas 4 (1997) 4179
+!  NMCURB  = 4, shielding calculation by Honda M., Kikuchi M., Azumi M.
+!  "Collisionality dependence on shielding factor of beam driven current"
+!  Nuclear Fusion, submitted by October 2011. Martix inversion method are used
+!  to include collisionality dependence on a shielding factor
+!  NMCURB=0, no fast ion driven current.
+nmcurb=3           
+NLQLIM0=T
+QLIM0=8.
+
+!=========================
+! ION SPECIES            !
+!=========================
+ng=3               ! initial number of plasma species (H,D,He)
+ngmax=3            ! maximum number
+aplasm=2., 1., 4.  ! atomic weight of this species
+backz=1.,1.,2.     ! defines the charge of this species
+frac=0.95,0.04,0.01  ! inital relative fraction of his gas
+gfrac=0.95,0.04,0.01 ! inital gasflow
+rfrac=0.95,0.04,0.01 ! species distribution of recycling source
+!impurities
+aimp=12.
+xzimp=6.
+nlzfin=T               ! define zeff from 1D input file
+
+! =============================!
+! Vaccum vessel
+! =============================!
+nlinlm =8
+ALNLMR(1) = 113.6
+ALNLMY(1) =   0.0
+ALNLMT(1) =  90.0
+ALNLMR(2) = 109.3
+ALNLMY(2) =  60.0
+ALNLMT(2) =  50.0
+ALNLMR(3) =  83.3
+ALNLMY(3) =  75.0
+ALNLMT(3) =   0.0
+ALNLMR(4) =  66.6
+ALNLMY(4) =  74.5
+ALNLMT(4) = -45.0
+ALNLMR(5) =  62.4
+ALNLMY(5) =   0.8
+ALNLMT(5) =  90.0
+ALNLMR(6) =  63.0
+ALNLMY(6) = -70.9
+ALNLMT(6) =  44.0
+ALNLMR(7) =  76.7
+ALNLMY(7) = -75.0
+ALNLMT(7) =   0.0
+ALNLMR(8) = 102.7
+ALNLMY(8) = -67.9
+ALNLMT(8) = -50.0
+
+!==========
+! Neutrals
+!==========
+nsomod=1        !! use FRANTIC analytic neutral transport model
+fh0esc=0.30     !! fraction of escaping neutrals to return as warm neutrals
+dn0out=1.00E+11 !! external neutral density
+mod0ed=4        !! use ion temperature at the edge the recycling sources energy
+tauph=0.01, 0.01, 0.01 !! plasma particle confinment time
+taupo=0.01             !! impurity confinement time
+taupmn=0.001            !! minimum confinement time
+
+!===================================
+!Coordinate for input profiles
+!===================================
+!!-5 -> data vs. flux coordinate xi  = SQRT(tflux/tfluxbdy)             
+!!-7 -> data vs. flux coordinate xpsi=SQRT(psipol/psipol(bdy))
+nriner=-5
+nsyner=0
+nriter=-5
+nsyter=0
+nriti2=-5
+nsyti2=0
+nriomg=-5
+nsyomg=0
+nriqpr=-5
+nsyqpr=0
+
+!=========================================
+! INCLUDE FILES                          !
+!=========================================
+prezef='Z'    !1D Zeff file
+extzef='EFF'  
+precur='I'
+extcur='CUR'
+preter='T'
+extter='ELE'
+preti2='T'
+extti2='ION'
+preomg='V'
+extomg='TOR'
+prener='N'
+extner='ELE'
+prerbz='B'
+extrbz='RBT'
+premry='M'
+extmry='MRY'
+preqpr='Q'
+extqpr='SAF'
+prenb2='P'
+extnb2='NBI'
+!preecp='P'
+!===============================================
+!           NEUTRAL BEAMS                      !
+!===============================================
+nlbeam=T                ! to turn on the neutral beam model
+nlbfpp=F                ! F for standart MC method
+lev_nbidep=2            ! 100% ADAS atomic physics (ground state)
+nsigexc=3               ! has been implemented and validated in NUBEAM.
+nlbdat=T                ! ufile specified
+nbeam=2                 ! number of beams
+nlbflr=T                ! (True is default) to force interactions on gyro motion
+nlbeamcx=T              ! charge exchange losses with beam and halo neutrals
+nptcls=80000
+DXBSMOO=0.05
+nlfbm=T                 ! calculate beam distribution function
+ndep0=500
+goocon=10.             !numeric goosing (orbit code acceleration) parameter. 
+goomax=500.0000
+dtbeam=$timestep            !beam timestep.  
+dtmaxg=$timestep            !maximum timestep for MHD plasma equilibrium geometry
+dtn=0.1800000E-05
+ebdmax=60.000E+03
+

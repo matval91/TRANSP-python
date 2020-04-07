@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pytransp.classes.transp_fbm as tfbm
 import sys
    
@@ -11,7 +13,7 @@ def main(fname):
     fbm.plot_spacep()
     return fbm
 
-if len(sys.argv) ==2:
+if len(sys.argv)==2:
     fname = sys.argv[1]
     main(fname)
 else:
