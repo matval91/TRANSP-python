@@ -8,7 +8,7 @@ Created on Wed Nov 27 17:46:18 2019
 import pytransp.classes.transp_fbm as tfbm
 import sys
 import matplotlib.pyplot as plt
-ls = ['-', '--']
+col = ['r', 'g', 'b']
 def main(fnames=['../examples/65052V01_fi_1.cdf']):
     """
     """
@@ -20,8 +20,8 @@ def main(fnames=['../examples/65052V01_fi_1.cdf']):
             fbm.plot_spaceE(); ax_pitch = plt.gca()
             fbm.plot_spacep(); ax_E = plt.gca()
         else:
-            fbm.plot_spaceE(ax=ax_pitch, ls=ls[i]); 
-            fbm.plot_spacep(ax=ax_E, ls=ls[i]);   
+            fbm.plot_spaceE(ax=ax_pitch, color=col[i]); 
+            fbm.plot_spacep(ax=ax_E, color=col[i]);   
     return
 
 if __name__ == '__main__':
