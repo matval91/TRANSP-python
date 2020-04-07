@@ -86,11 +86,15 @@ class transp_fbm(fdist_superclass):
         Hidden method to read the wall
         """
         in_w_fname='/home/vallar/TCV_wall/TCV_vessel_coord.dat'
-        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
-
-        self.R_w = np.array(wall[0,:])
-        self.z_w = np.array(wall[1,:])        
-        
+        try:
+            wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=0)
+            self.R_w = np.array(wall[0,:])
+            self.z_w = np.array(wall[1,:])
+        except:
+            print('No Wall')
+            self.R_w=[0]
+            self.z_w=[0]
+            
     def _read_info(self):
         """
         """         
