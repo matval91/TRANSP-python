@@ -92,8 +92,8 @@ class transp_exp(transp_heating):
         unlimited dimensions:
         current shape = (101, 40)
         """        
-        keys     = ['jboot_no', 'jboot', 'jbootneogk', 'jbootneo', 'jbootsauor']
-        varnames = ['CURBS', 'CURBSSAU', 'CURBSNEO', 'CURBSWNC', 'CURBSSAU0']
+        keys     = ['jboot']
+        varnames = ['CURBS']
         self.perf_names = dict.fromkeys(keys)
         self.perf_vars  = dict.fromkeys(keys)
         self.perf_names, self.perf_vars = tu._fill_dict(self.file,keys, varnames)
@@ -117,17 +117,20 @@ class transp_exp(transp_heating):
         """   
         v_source = self.file.variables['DN0VD'][:]
         w_source = self.file.variables['DN0WD'][:]
-
-        CXfastn = self.file.variables['N0BCXD0'][:]
-        first_fastn = self.file.variables['N0BD0'][:]
-        halob = self.file.variables['N0BH_D'][:]
-        Drecy = self.file.variables['N0RC_D_D'][:]
-        Dflow= self.file.variables['N0GF_D_D'][:]
-        Dsflow= self.file.variables['N0SGF_D'][:]
-        Dnrecy= self.file.variables['N0SRC_D'][:]
-        Drec= self.file.variables['N0V0_D'][:]
-         
-        tot_source = v_source+w_source+first_fastn+CXfastn+Drecy+Dflow+halob+Dsflow+Dnrecy+Drec
+        try:
+            CXfastn = self.file.variables['N0BCXD0'][:]
+            first_fastn = self.file.variables['N0BD0'][:]
+            halob = self.file.variables['N0BH_D'][:]
+            Drecy = self.file.variables['N0RC_D_D'][:]
+            Dflow= self.file.variables['N0GF_D_D'][:]
+            Dsflow= self.file.variables['N0SGF_D'][:]
+            Dnrecy= self.file.variables['N0SRC_D'][:]
+            Drec= self.file.variables['N0V0_D'][:]
+            n0_fast=first_fastn+CXfastn+Drecy+Dflow+halob+Dsflow+Dnrecy+Drec
+        except KeyError:
+           n0_fast=0
+           
+        tot_source = v_source+w_source+n0_fast
 
         f=plt.figure(); ax=f.add_subplot(111)
         ax.plot(self.t, tot_source[:, 0]*1e6, 'k', lw=2.3, label='tot')
@@ -173,11 +176,13 @@ class transp_exp(transp_heating):
 #        Dsflow= self.file.variables['N0SGF_D'][:]
 #        Dnrecy= self.file.variables['N0SRC_D'][:]
 #        Drec= self.file.variables['N0V0_D'][:]
-#        
-        CXfastn = self.file.variables['N0BCXD0'][:]
-        first_fastn = self.file.variables['N0BD0'][:]
-#        halob = self.file.variables['N0BH_D'][:]
-        n0fast = first_fastn+CXfastn
+        try:
+            CXfastn = self.file.variables['N0BCXD0'][:]
+            first_fastn = self.file.variables['N0BD0'][:]
+            n0fast = first_fastn+CXfast
+        except:
+            #        halob = self.file.variables['N0BH_D'][:]
+            n0fast=0.
         tot_source = v_source+w_source#+Drecy+Dflow+Dsflow+Dnrecy+Drec
         tot_source += n0fast
         
