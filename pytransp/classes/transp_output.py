@@ -181,7 +181,7 @@ class transp_output:
         
         """
         keys     = ['j', 'joh', 'jbs', 'p', 'pth', 'pnth', 'pol_flux', 'tor_flux', 'q', 'f']
-        varnames = ['CUR', 'CUROH', 'CURBS', 'PMHD_IN', 'PMHDT_IN', 'PMHDF_IN', 'PLFLX', 'TRFLX','Q', 'BZXR']
+        varnames = ['CUR', 'CUROH', 'CURBSSAU', 'PMHD_IN', 'PMHDT_IN', 'PMHDF_IN', 'PLFLX', 'TRFLX','Q', 'BZXR']
         self.eq_names = dict.fromkeys(keys)
         self.eq_vars  = dict.fromkeys(keys)
         self.eq_names, self.eq_vars = \
