@@ -19,9 +19,13 @@ def _fill_dict(ff, keys, varnames):
     var_dict  = dict.fromkeys(keys)
 
     for ii,kk in enumerate(keys):
-        name_dict[kk] = varnames[ii]
-        tmpdata = ff.variables[name_dict[kk]][:]
-        var_dict[kk] = tmpdata
+        try:
+            name_dict[kk] = varnames[ii]
+            tmpdata = ff.variables[name_dict[kk]][:]
+            var_dict[kk] = tmpdata
+        except:
+            print('No variable ', kk)
+            var_dict[kk] = 0.
 
     return name_dict, var_dict
 
