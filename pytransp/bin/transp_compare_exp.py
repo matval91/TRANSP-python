@@ -145,7 +145,6 @@ except:
 tt=output.t
 data['TRANSP']['vl'] = np.array([tt, output.file.variables['VSURC']])
 output._calculate_wmhd()
-data['TRANSP']['wth'] = np.array([tt, output.wth])
 data['TRANSP']['wmhd'] = np.array([tt, output.wtot])
 data['TRANSP']['betaN'] = np.array([tt, output.file.variables['BTDIA']])
 data['TRANSP']['ibs'] = np.array([tt, output.jboot])
@@ -166,30 +165,42 @@ data['TRANSP']['ti'] = np.array([rho, output.kin_vars['ti'][ind, :]])
 #data['TRANSP']['ni'] = np.array([output.rho[ind, :], output.kin_vars['ni'][ind, :]])
 data['TRANSP']['zeff'] = np.array([tt, output.file.variables['ZEFFI0']])
 
-plt.rc('font', weight='bold')
-plt.rc('xtick', labelsize=10)
-plt.rc('ytick', labelsize=10)
-plt.rc('axes', labelsize=10, labelweight='normal', titlesize=24)
+## Normalizing units
+for ii in ['TRANSP', 'EXP']:
+    for jj in ['te', 'ti', 'pe', 'ibs', 'wmhd']: data[ii][jj][1,:]*=1e-3
+    for jj in ['betaN']: data[ii][jj][1,:]*=100
+data['TRANSP']['wth'][1,:]*=1e-3
+
+#plt.rc('font', weight='bold')
+plt.rc('xtick', labelsize=12)
+plt.rc('ytick', labelsize=12)
+plt.rc('axes', labelsize=14, labelweight='normal', titlesize=24)
 plt.rc('figure', facecolor='white')
 plt.rc('legend', fontsize=10)
 ncol=3; nrow=3
 
 colexp ='k'
 coltr  = 'b'
-col = {'EXP':'k', 'TRANSP':'b'}
+col = {'EXP':'k', 'TRANSP':'r'}
 lab = {'EXP':'EXP (t={:2.2f})'.format(ttexp), 'TRANSP':'TRANSP (t={:2.2f})'.format(ttransp)}
-
+ylabels={'vl':r'$V_{LOOP}$ (V)', 'wmhd':r'$W_{MHD}$ (kJ)', 'betaN':r'$\beta_N$ (%)', 'ibs':r'$I_{BS}$ (kA)', 'n0':r'$n_0 (m^{-3})$', \
+         'ne':r'$n_e (m^{-3})$', 'te': r'$T_e (keV)$', 'pe':r'$P_e$ (kPa)', 'ti':r'$T_i$ (keV)'}
 f,axs=plt.subplots(nrow, ncol, figsize=[4*ncol,3*nrow])
-
 for indk, key in enumerate(data['EXP'].keys()):
     if key=='zeff':
         continue
-    _col=indk% ncol
-    _row=int(indk/ncol)
+    if key in ['wmhd', 'betaN', 'ibs']: _col=2
+    elif key in ['ne', 'te', 'ti']: _col=0
+    else:  _col=1
+#    _col=indk% ncol
+    if key in ['ne', 'pe', 'betaN']: _row=0
+    elif key in ['te', 'vl', 'wmhd']: _row=1
+    else: _row=2
+#    _row=int(indk/ncol)
     ax=axs[_row,_col]
     for kkk in ['EXP', 'TRANSP']:
         ax.plot(data[kkk][key][0,:], data[kkk][key][1,:], color=col[kkk], label=lab[kkk])
-        ax.set_ylabel(key)
+        ax.set_ylabel(ylabels[key])
 
     if key=='wmhd':
         offset=input('Need an offset? It will be ADDED to experimental wmhd \n')
@@ -202,8 +213,8 @@ for indk, key in enumerate(data['EXP'].keys()):
         ax2=ax.twinx()
         ax2.plot(data['zeff'][0,:], data['zeff'][1,:], color=col['EXP'],ls='--')
         ax2.plot(data['TRANSP']['zeff'][0,:], data['TRANSP']['zeff'][1,:], color=col['TRANSP'], ls='--')
-        ax.set_ylim([-2, 5.]); ax2.set_ylim([0., 5])
-        ax2.set_ylabel(r'Z_{eff} (dotted)')
+        ax.set_ylim([-2, 5.]); ax2.set_ylim([1., 3])
+        ax2.set_ylabel(r'$Z_{eff}$ (dotted)')
             
             
     if indk==0:
@@ -215,7 +226,7 @@ for indk, key in enumerate(data['EXP'].keys()):
     ax.grid('on')
 f.suptitle(shot+'  t = '+str(time))
 f.tight_layout()
-
+axs[0,2].get_shared_x_axes().join(axs[0,2], axs[1,2], axs[2,2], axs[1,1], axs[2,1])
 #output.plot_powerbalance()
 
 plt.show()
